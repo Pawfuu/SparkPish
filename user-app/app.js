@@ -376,6 +376,7 @@ function handleValidationResult(result, reporter, reportId, contact) {
     return;
   }
 
+  // Gracefully present error text without breaking DOM state
   setSummary(result.error || "No waste detected");
 
   if (typeof window.showErrorModal === "function") {
@@ -385,13 +386,10 @@ function handleValidationResult(result, reporter, reportId, contact) {
 
 if (submitBtn) {
   submitBtn.addEventListener("click", async function () {
-    // Prevent double-submit while a request is in flight
     if (isSubmitting) return;
 
     if (!isApiKeyConfigured()) {
-      setSummary(
-        "API key missing. Copy config.example.js to config.js and add your Gemini API key.",
-      );
+      setSummary("API key missing. Copy config.example.js to config.js and add your Gemini API key.");
       return;
     }
 
@@ -421,18 +419,24 @@ if (submitBtn) {
         promptText,
       );
 
+      // Handle validation errors instantly before attempting Firestore uploads
       if (result.valid !== true) {
         handleValidationResult(result, reporter);
+        setSubmitLoading(false);
+        isSubmitting = false;
         return;
       }
 
       setSummary("Trash verified. Uploading report... please wait.");
 
+      // Fixed: Passing contactInfo, notes, and severityScore straight to the data service
       const reportData = {
         wasteType: reportForm.wasteType,
         volumeEstimate: result.volume || "Unknown",
         location: getReportLocation(),
         contactInfo: reportForm.contactInfo,
+        notes: reporter.notes,
+        severityScore: result.severity_score != null ? result.severity_score : 3
       };
 
       const reportId = await submitTrashReport(reportData, selectedFile);
@@ -446,17 +450,12 @@ if (submitBtn) {
       handleValidationResult(result, reporter, reportId, reportForm.contactInfo);
     } catch (error) {
       console.error("Basura-Pin submission error:", error);
-
-      setSummary(
-        "Something went wrong while processing your report.\n\n" +
-          getErrorMessage(error),
-      );
+      setSummary("Something went wrong while processing your report.\n\n" + getErrorMessage(error));
 
       if (typeof window.showErrorModal === "function") {
         window.showErrorModal();
       }
     } finally {
-      // Always release the UI — even on timeout, network failure, or thrown errors
       isSubmitting = false;
       setSubmitLoading(false);
     }
