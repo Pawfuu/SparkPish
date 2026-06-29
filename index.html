@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Basura-Pin — Community garbage mapping app" />
+  <title>Basura-Pin</title>
+
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    // Tell Tailwind to switch themes when the <html> element has class="dark"
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: [
+              'Inter',
+              'ui-sans-serif',
+              'system-ui',
+              '-apple-system',
+              'Segoe UI',
+              'Roboto',
+              'Helvetica Neue',
+              'Arial',
+              'sans-serif',
+            ],
+          },
+          colors: {
+            // Electric purple accent used in dark mode borders & buttons
+            electric: {
+              400: '#a78bfa',
+              500: '#8b5cf6',
+              600: '#7c3aed',
+            },
+          },
+        },
+      },
+    };
+  </script>
+
+  <!-- Clean, legible sans-serif from Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+    rel="stylesheet"
+  />
+
+  <style>
+    /* Smooth color transitions when toggling light/dark mode */
+    html.theme-transition,
+    html.theme-transition *,
+    html.theme-transition *::before,
+    html.theme-transition *::after {
+      transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease;
+    }
+  </style>
+</head>
+
+<!--
+  BODY CLASSES EXPLAINED (Light Mode defaults):
+  - bg-gray-100 / dark:bg-zinc-950  → page background
+  - text-gray-900 / dark:text-gray-100 → readable body text
+-->
+<body
+  class="min-h-screen bg-gray-100 text-gray-900 antialiased dark:bg-zinc-950 dark:text-gray-100"
+>
+
+  <!--
+    MOBILE-FIRST APP SHELL
+    On phones: full width with comfortable padding.
+    On larger screens: centered column capped at max-w-md (looks like a phone app).
+  -->
+  <div class="mx-auto flex min-h-screen w-full max-w-md flex-col px-4 py-6 sm:px-6">
+
+    <!-- ============================================================
+         SECTION 1: HEADER
+         App title, dynamic street location, theme toggle button
+         ============================================================ -->
+    <header
+      class="mb-4 flex items-start justify-between gap-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-electric-500/40 dark:bg-zinc-900 dark:shadow-purple-900/20"
+      role="banner"
+    >
+      <div class="min-w-0 flex-1">
+        <h1 class="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+          Basura-Pin
+        </h1>
+        <!-- Location is dynamically loaded from params by script -->
+        <p
+          id="street-location"
+          class="mt-1 text-sm text-gray-600 dark:text-gray-400"
+          aria-live="polite"
+        >
+          📍 Location: Brgy 630, Mabini St.
+        </p>
+      </div>
+
+      <!-- Theme toggle: Sun (light) / Moon (dark) icons -->
+      <button
+        id="theme-toggle"
+        type="button"
+        class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-gray-300 bg-gray-50 text-gray-700 transition hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 dark:border-electric-500/50 dark:bg-zinc-800 dark:text-electric-400 dark:hover:bg-zinc-700 dark:focus-visible:ring-electric-500 dark:focus-visible:ring-offset-zinc-950"
+        aria-label="Toggle dark mode"
+        aria-pressed="false"
+      >
+        <!-- Sun icon — visible in LIGHT mode (click to enable dark) -->
+        <svg
+          id="icon-sun"
+          class="h-5 w-5"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke-width="1.75"
+          stroke="currentColor"
+          aria-hidden="true"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z"
+          />
+        </svg>
+        <!-- Moon icon — visible in DARK mode (click to enable light) -->
+        <svg
+          id="icon-moon"
+          class="hidden h-5 w-5"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke-width="1.75"
+          stroke="currentColor"
+          aria-hidden="true"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z"
+          />
+        </svg>
+      </button>
+    </header>
+
+    <!-- ============================================================
+         SECTION 1B: REPORTER INFO FIELDS
+         ============================================================ -->
+    <section
+      class="mb-6 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-electric-500/40 dark:bg-zinc-900 dark:shadow-purple-900/20"
+      aria-labelledby="reporter-info-heading"
+    >
+      <h2 id="reporter-info-heading" class="sr-only">Reporter Info</h2>
+      <div class="space-y-4">
+        <!-- Name input -->
+        <div>
+          <label for="reporter-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >Your Name (Optional)</label
+          >
+          <input
+            type="text"
+            id="reporter-name"
+            name="reporter-name"
+            placeholder="e.g., Jane Doe"
+            class="mt-1 block w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-2 text-gray-900 shadow-sm transition focus:border-purple-500 focus:ring-2 focus:ring-purple-500 dark:border-electric-500/40 dark:bg-zinc-800 dark:text-white dark:focus:border-electric-500 dark:focus:ring-electric-500"
+            autocomplete="off"
+          />
+        </div>
+        <!-- Email input (added for premium flash message UI) -->
+        <div>
+          <label for="reporter-email" class="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >Email Address (Optional)</label
+          >
+          <input
+            type="email"
+            id="reporter-email"
+            name="reporter-email"
+            placeholder="e.g., jane@email.com"
+            class="mt-1 block w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-2 text-gray-900 shadow-sm transition focus:border-purple-500 focus:ring-2 focus:ring-purple-500 dark:border-electric-500/40 dark:bg-zinc-800 dark:text-white dark:focus:border-electric-500 dark:focus:ring-electric-500"
+            autocomplete="off"
+          />
+        </div>
+        <!-- Notes textarea -->
+        <div>
+          <label for="reporter-notes" class="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >Additional Notes (Optional)</label
+          >
+          <textarea
+            id="reporter-notes"
+            name="reporter-notes"
+            rows="3"
+            placeholder="e.g., Blocking the drainage, near the store..."
+            class="mt-1 block w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-2 text-gray-900 shadow-sm transition focus:border-purple-500 focus:ring-2 focus:ring-purple-500 dark:border-electric-500/40 dark:bg-zinc-800 dark:text-white dark:focus:border-electric-500 dark:focus:ring-electric-500"
+          ></textarea>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         SECTION 2: CAMERA CARD
+         Mimics a live camera viewport with a snap-photo action
+         ============================================================ -->
+    <section
+      class="mb-6"
+      aria-labelledby="camera-heading"
+    >
+      <h2 id="camera-heading" class="sr-only">Camera</h2>
+
+      <div
+        class="relative overflow-hidden rounded-2xl border-2 border-dashed border-purple-300 bg-gradient-to-b from-gray-50 to-white p-6 shadow-inner dark:border-electric-500/60 dark:from-zinc-900 dark:to-zinc-950"
+      >
+        <!-- Decorative "viewfinder" corners for camera feel -->
+        <div class="pointer-events-none absolute inset-4 rounded-xl border border-gray-200/80 dark:border-electric-500/30" aria-hidden="true"></div>
+
+        <!-- Viewport label -->
+        <p class="mb-4 text-center text-xs font-medium uppercase tracking-widest text-gray-500 dark:text-electric-400/80">
+          Camera Viewport
+        </p>
+
+        <!--
+          Hidden native file input — MUST keep these exact attributes:
+          type="file"          → file picker / camera
+          accept="image/*"     → images only
+          capture="environment"→ rear camera on mobile (not gallery-first)
+        -->
+        <input
+          id="trash-photo-input"
+          type="file"
+          accept="image/*"
+          capture="environment"
+          class="sr-only"
+          aria-label="Snap trash photo using camera"
+        />
+
+        <!--
+          Styled label acts as the visible button.
+          Clicking it triggers the hidden input above.
+        -->
+        <label
+          for="trash-photo-input"
+          class="mx-auto flex w-full max-w-xs cursor-pointer items-center justify-center gap-2 rounded-xl bg-purple-600 px-6 py-4 text-center text-base font-semibold text-white shadow-lg shadow-purple-600/30 transition hover:bg-purple-700 focus-within:outline-none focus-within:ring-2 focus-within:ring-purple-500 focus-within:ring-offset-2 dark:bg-electric-600 dark:shadow-electric-600/40 dark:hover:bg-electric-500 dark:focus-within:ring-electric-400 dark:focus-within:ring-offset-zinc-950"
+        >
+          📷 Snap Trash Photo
+        </label>
+
+        <p class="mt-4 text-center text-xs text-gray-500 dark:text-gray-500">
+          Uses your device camera on mobile
+        </p>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         FLASH MESSAGE SUCCESS AND ERROR MODALS
+         ============================================================ -->
+
+    <!-- Success Modal (Flash card style) -->
+    <div
+      id="success-modal"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4 py-8 transition-all duration-200 ease-in-out hidden"
+      aria-modal="true"
+      role="dialog"
+      tabindex="-1"
+    >
+      <div class="relative w-full max-w-sm rounded-3xl bg-white dark:bg-zinc-900 px-6 pt-8 pb-6 shadow-2xl flex flex-col items-center">
+        <!-- Large green circle with white check -->
+        <div class="flex items-center justify-center w-20 h-20 rounded-full bg-green-500 -mt-16 shadow-lg mb-5">
+          <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" stroke-width="4" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 13l4 4 8-8"/>
+          </svg>
+        </div>
+        <h3 class="text-2xl font-extrabold text-green-700 dark:text-green-400 uppercase tracking-wider mb-2">Success!</h3>
+        <p class="text-gray-600 dark:text-gray-300 mb-6 text-center">
+          Your report has been validated and flagged on the driver's map.
+        </p>
+        <button
+          id="close-success-modal"
+          type="button"
+          class="w-full mt-2 inline-flex items-center justify-center gap-2 rounded-full bg-green-600 px-8 py-3 text-base font-bold text-white shadow-md shadow-green-600/30 transition hover:bg-green-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2 dark:bg-green-500 dark:hover:bg-green-600 dark:focus-visible:ring-green-400 dark:focus-visible:ring-offset-zinc-900"
+        >
+          Awesome!
+        </button>
+      </div>
+    </div>
+
+    <!-- Error Modal (Flash card style, new) -->
+    <div
+      id="error-modal"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4 py-8 transition-all duration-200 ease-in-out hidden"
+      aria-modal="true"
+      role="dialog"
+      tabindex="-1"
+    >
+      <div class="relative w-full max-w-sm rounded-3xl bg-white dark:bg-zinc-900 px-6 pt-8 pb-6 shadow-2xl flex flex-col items-center">
+        <!-- Large red circle with white X -->
+        <div class="flex items-center justify-center w-20 h-20 rounded-full bg-red-500 -mt-16 shadow-lg mb-5">
+          <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" stroke-width="4" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 6l12 12M6 18L18 6"/>
+          </svg>
+        </div>
+        <h3 class="text-2xl font-extrabold text-red-700 dark:text-red-400 uppercase tracking-wider mb-2">Error!</h3>
+        <p class="text-gray-600 dark:text-gray-300 mb-6 text-center">
+          Something went wrong or no trash was detected. Please try again.
+        </p>
+        <button
+          id="close-error-modal"
+          type="button"
+          class="w-full mt-2 inline-flex items-center justify-center gap-2 rounded-full bg-red-600 px-8 py-3 text-base font-bold text-white shadow-md shadow-red-600/30 transition hover:bg-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 dark:bg-red-500 dark:hover:bg-red-600 dark:focus-visible:ring-red-400 dark:focus-visible:ring-offset-zinc-900"
+        >
+          Try Again
+        </button>
+      </div>
+    </div>
+
+    <script>
+      // --- Dynamic location rendering from ?barangay & ?street ---
+      (function() {
+        function sanitize(str) {
+          return String(str).replace(/[<>]/g, "");
+        }
+        var params = new URLSearchParams(window.location.search);
+        var barangay = params.get('barangay');
+        var street = params.get('street');
+        var locationStr = '📍 Location: Brgy 630, Mabini St.';
+        if (barangay || street) {
+          var cleanBarangay = barangay ? sanitize(barangay) : '';
+          var cleanStreet = street ? sanitize(street) : '';
+          if (cleanBarangay && cleanStreet) {
+            locationStr = `📍 Location: Brgy ${cleanBarangay}, ${cleanStreet}`;
+          } else if (cleanBarangay) {
+            locationStr = `📍 Location: Brgy ${cleanBarangay}`;
+          } else if (cleanStreet) {
+            locationStr = `📍 Location: ${cleanStreet}`;
+          }
+        }
+        var locElem = document.getElementById('street-location');
+        if (locElem) locElem.textContent = locationStr;
+      })();
+
+      // --- Modal logic (Success/Error Flash Message) ---
+      (function() {
+        var successModal = document.getElementById('success-modal');
+        var closeSuccessBtn = document.getElementById('close-success-modal');
+        var errorModal = document.getElementById('error-modal');
+        var closeErrorBtn = document.getElementById('close-error-modal');
+
+        window.showSuccessModal = function() {
+          if (successModal) successModal.classList.remove('hidden');
+        };
+
+        window.showErrorModal = function() {
+          if (errorModal) errorModal.classList.remove('hidden');
+        };
+
+        function clearReporterFields() {
+          var name = document.getElementById('reporter-name');
+          var email = document.getElementById('reporter-email');
+          var notes = document.getElementById('reporter-notes');
+          if (name) name.value = '';
+          if (email) email.value = '';
+          if (notes) notes.value = '';
+          // Optionally reset camera/photo input and results too if needed
+          var photoInput = document.getElementById('trash-photo-input');
+          if (photoInput) photoInput.value = '';
+          var summary = document.getElementById('ai-summary');
+          if (summary) summary.textContent = 'AI Analysis will appear here after snapping a photo...';
+          // Hide all alerts if using showAlert/hideAlerts elsewhere
+          if (typeof window.hideAlerts === 'function') window.hideAlerts();
+        }
+
+        if (closeSuccessBtn) {
+          closeSuccessBtn.addEventListener('click', function() {
+            if (successModal) successModal.classList.add('hidden');
+            clearReporterFields();
+          });
+        }
+        if (closeErrorBtn) {
+          closeErrorBtn.addEventListener('click', function() {
+            if (errorModal) errorModal.classList.add('hidden');
+            clearReporterFields();
+          });
+        }
+
+        // For accessibility: hide modal on "Escape" keydown (closes both)
+        document.addEventListener('keydown', function(e) {
+          if ((e.key === "Escape" || e.key === "Esc")) {
+            if (successModal && !successModal.classList.contains('hidden')) {
+              successModal.classList.add('hidden');
+              clearReporterFields();
+            }
+            if (errorModal && !errorModal.classList.contains('hidden')) {
+              errorModal.classList.add('hidden');
+              clearReporterFields();
+            }
+          }
+        });
+      })();
+    </script>
+
+    <!-- ============================================================
+         SECTION 3: AI SUMMARY PREVIEW
+         Read-only placeholder until a photo is analyzed
+         ============================================================ -->
+    <section
+      class="mb-6"
+      aria-labelledby="summary-heading"
+    >
+      <h2
+        id="summary-heading"
+        class="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400"
+      >
+        AI Analysis
+      </h2>
+
+      <div
+        id="ai-summary"
+        class="min-h-[120px] rounded-2xl border border-gray-200 bg-white p-5 text-sm leading-relaxed text-gray-500 shadow-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-400"
+        role="status"
+        aria-readonly="true"
+      >
+        AI Analysis will appear here after snapping a photo...
+      </div>
+    </section>
+
+    <!-- ============================================================
+         SECTION 4: SUCCESS / ERROR ALERT PLACEHOLDERS
+         Hidden by default — toggle visibility with JavaScript later.
+         Example: document.getElementById('alert-success').classList.remove('hidden');
+         ============================================================ -->
+
+    <!-- Green success banner (hidden until upload is approved) -->
+    <div
+      id="alert-success"
+      class="mb-4 hidden rounded-xl border border-green-300 bg-green-50 px-4 py-3 text-sm font-medium text-green-800 dark:border-green-500/40 dark:bg-green-950/50 dark:text-green-300"
+      role="alert"
+      aria-live="assertive"
+    >
+      ✅ Upload approved: Trash detected!
+    </div>
+
+    <!-- Red error banner (hidden until upload is rejected) -->
+    <div
+      id="alert-error"
+      class="mb-4 hidden rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm font-medium text-red-800 dark:border-red-500/40 dark:bg-red-950/50 dark:text-red-300"
+      role="alert"
+      aria-live="assertive"
+    >
+      ❌ Upload rejected: No trash detected.
+    </div>
+
+     <!-- ================================================================
+       SUBMIT BUTTON
+       ================================================================ -->
+       <button
+       id="submit-report-btn"
+       type="button"
+       class="mt-4 mb-6 flex w-full items-center justify-center gap-2 rounded-xl bg-purple-600 px-6 py-4 text-base font-bold text-white shadow-lg shadow-purple-600/30 transition hover:scale-[1.02] hover:bg-purple-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 dark:bg-electric-600 dark:shadow-electric-600/40 dark:hover:bg-electric-500"
+     >
+       <svg id="submit-spinner" class="hidden h-5 w-5 animate-spin text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+       </svg>
+       <span id="submit-text">Submit Trash Report</span>
+     </button>
+ 
+     <footer class="mt-auto pt-4 pb-8 text-center text-xs text-gray-400 dark:text-zinc-600">
+       Basura-Pin · Community Garbage Mapping
+     </footer>
+  </div>
+
+  <!-- ================================================================
+       EMBEDDED JAVASCRIPT
+       Theme toggle + small helpers for future features
+       ================================================================ -->
+  <script>
+    (function () {
+      'use strict';
+
+      /* --------------------------------------------------------------
+         THEME TOGGLE (Light ↔ Dark)
+         - Default: Light Mode
+         - Persists choice in localStorage
+         -------------------------------------------------------------- */
+
+      const STORAGE_KEY = 'basura-pin-theme';
+      const root = document.documentElement;
+      const toggleBtn = document.getElementById('theme-toggle');
+      const iconSun = document.getElementById('icon-sun');
+      const iconMoon = document.getElementById('icon-moon');
+
+      /** Apply theme classes and update the toggle button state */
+      function applyTheme(isDark) {
+        root.classList.toggle('dark', isDark);
+        toggleBtn.setAttribute('aria-pressed', String(isDark));
+        toggleBtn.setAttribute(
+          'aria-label',
+          isDark ? 'Switch to light mode' : 'Switch to dark mode'
+        );
+
+        // Show moon in dark mode, sun in light mode
+        iconSun.classList.toggle('hidden', isDark);
+        iconMoon.classList.toggle('hidden', !isDark);
+      }
+
+      /** Read saved preference; fall back to light mode */
+      function getInitialTheme() {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved === 'dark') return true;
+        if (saved === 'light') return false;
+        return false; // default: light
+      }
+
+      /** Smooth transition when user clicks the toggle */
+      function enableTransitionBriefly() {
+        root.classList.add('theme-transition');
+        window.setTimeout(function () {
+          root.classList.remove('theme-transition');
+        }, 300);
+      }
+
+      // Apply theme immediately on page load (before paint flicker)
+      applyTheme(getInitialTheme());
+
+      toggleBtn.addEventListener('click', function () {
+        const willBeDark = !root.classList.contains('dark');
+        enableTransitionBriefly();
+        applyTheme(willBeDark);
+        localStorage.setItem(STORAGE_KEY, willBeDark ? 'dark' : 'light');
+      });
+
+      /* --------------------------------------------------------------
+         OPTIONAL: Update street location dynamically
+         Call setStreetLocation('Brgy 123, Example St.') from app.js later
+         -------------------------------------------------------------- */
+      window.setStreetLocation = function (locationText) {
+        var el = document.getElementById('street-location');
+        if (el) {
+          el.textContent = '📍 Location: ' + locationText;
+        }
+      };
+
+      /* --------------------------------------------------------------
+         OPTIONAL: Show / hide alert banners from app.js later
+         Example:
+           showAlert('success');
+           showAlert('error');
+           hideAlerts();
+         -------------------------------------------------------------- */
+      window.showAlert = function (type) {
+        var success = document.getElementById('alert-success');
+        var error = document.getElementById('alert-error');
+        if (type === 'success') {
+          success.classList.remove('hidden');
+          error.classList.add('hidden');
+        } else if (type === 'error') {
+          error.classList.remove('hidden');
+          success.classList.add('hidden');
+        }
+      };
+
+      window.hideAlerts = function () {
+        document.getElementById('alert-success').classList.add('hidden');
+        document.getElementById('alert-error').classList.add('hidden');
+      };
+    })();
+  </script>
+
+  <!-- Photo capture + Gemini AI analysis -->
+  <script src="app.js"></script>
+</body>
+</html>
