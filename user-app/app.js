@@ -9,6 +9,7 @@
  */
 
 import { GEMINI_API_KEY } from "./config.js";
+import { submitTrashReport } from "../shared/report-service.js";
 
 // ---------------------------------------------------------------------------
 // API configuration
@@ -32,7 +33,8 @@ const submitBtn = document.getElementById("submit-report-btn");
 const submitSpinner = document.getElementById("submit-spinner");
 const submitText = document.getElementById("submit-text");
 const reporterName = document.getElementById("reporter-name");
-const reporterEmail = document.getElementById("reporter-email");
+const wasteCategory = document.getElementById("waste-category");
+const contactInfo = document.getElementById("contact-info");
 const reporterNotes = document.getElementById("reporter-notes");
 
 if (!photoInput || !summaryEl || !submitBtn) {
@@ -110,9 +112,44 @@ function setSubmitLoading(isLoading) {
 function getReporterData() {
   return {
     name: reporterName ? reporterName.value.trim() : "",
-    email: reporterEmail ? reporterEmail.value.trim() : "",
     notes: reporterNotes ? reporterNotes.value.trim() : "",
   };
+}
+
+/** Read report fields used for Firestore submission */
+function getReportFormData() {
+  const contact = contactInfo ? contactInfo.value.trim() : "";
+  return {
+    wasteType: wasteCategory ? wasteCategory.value : "",
+    contactInfo: contact || null,
+  };
+}
+
+/** Resolve location from URL params or the header display */
+function getReportLocation() {
+  const params = new URLSearchParams(window.location.search);
+  const barangay = params.get("barangay");
+  const street = params.get("street");
+
+  if (barangay && street) {
+    return "Brgy " + barangay + ", " + street;
+  }
+  if (barangay) {
+    return "Brgy " + barangay;
+  }
+  if (street) {
+    return street;
+  }
+
+  const locEl = document.getElementById("street-location");
+  if (locEl) {
+    const text = locEl.textContent.replace(/^📍 Location:\s*/, "").trim();
+    if (text) {
+      return text;
+    }
+  }
+
+  return "Unknown location";
 }
 
 /** Build the full prompt, optionally enriched with reporter notes */
@@ -318,7 +355,7 @@ function extractJsonFromGeminiResponse(data) {
 // ---------------------------------------------------------------------------
 
 /** Update #ai-summary and open the appropriate flash modal */
-function handleValidationResult(result, reporter) {
+function handleValidationResult(result, reporter, reportId, contact) {
   if (result.valid === true) {
     setSummary(
       "Trash detected!\n\n" +
@@ -328,8 +365,9 @@ function handleValidationResult(result, reporter) {
         "Severity score: " +
         (result.severity_score != null ? result.severity_score : "N/A") +
         " / 5" +
+        (reportId ? "\n\nReport ID: " + reportId : "") +
         (reporter.name ? "\n\nReported by: " + reporter.name : "") +
-        (reporter.email ? "\nContact: " + reporter.email : ""),
+        (contact ? "\nContact: " + contact : ""),
     );
 
     if (typeof window.showSuccessModal === "function") {
@@ -362,6 +400,12 @@ if (submitBtn) {
       return;
     }
 
+    const reportForm = getReportFormData();
+    if (!reportForm.wasteType) {
+      setSummary("Please select a trash category before submitting your report.");
+      return;
+    }
+
     const reporter = getReporterData();
     const promptText = buildValidatorPrompt(reporter.notes);
 
@@ -377,17 +421,34 @@ if (submitBtn) {
         promptText,
       );
 
+      if (result.valid !== true) {
+        handleValidationResult(result, reporter);
+        return;
+      }
+
+      setSummary("Trash verified. Uploading report... please wait.");
+
+      const reportData = {
+        wasteType: reportForm.wasteType,
+        volumeEstimate: result.volume || "Unknown",
+        location: getReportLocation(),
+        contactInfo: reportForm.contactInfo,
+      };
+
+      const reportId = await submitTrashReport(reportData, selectedFile);
+
       console.log("Basura-Pin report submitted:", {
         reporter: reporter,
         validation: result,
+        reportId: reportId,
       });
 
-      handleValidationResult(result, reporter);
+      handleValidationResult(result, reporter, reportId, reportForm.contactInfo);
     } catch (error) {
-      console.error("Basura-Pin analysis error:", error);
+      console.error("Basura-Pin submission error:", error);
 
       setSummary(
-        "Something went wrong while analyzing your photo.\n\n" +
+        "Something went wrong while processing your report.\n\n" +
           getErrorMessage(error),
       );
 

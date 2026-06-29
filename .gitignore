@@ -1,0 +1,3 @@
+.env
+config.js
+shared/firebase-config.js

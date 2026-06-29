@@ -175,21 +175,46 @@
               autocomplete="off"
             />
           </div>
-          <!-- Email input (added for premium flash message UI) -->
+          <!-- Trash category -->
           <div>
             <label
-              for="reporter-email"
+              for="waste-category"
               class="block text-sm font-medium text-gray-700 dark:text-gray-300"
-              >Email Address (Optional)</label
+              >Trash Category</label
+            >
+            <select
+              id="waste-category"
+              name="waste-category"
+              required
+              class="mt-1 block w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-2 text-gray-900 shadow-sm transition focus:border-purple-500 focus:ring-2 focus:ring-purple-500 dark:border-electric-500/40 dark:bg-zinc-800 dark:text-white dark:focus:border-electric-500 dark:focus:ring-electric-500"
+            >
+              <option value="" disabled selected>Select a category</option>
+              <option value="bio">Biodegradable</option>
+              <option value="non-bio">Non-Biodegradable</option>
+              <option value="mixed">Mixed</option>
+              <option value="recycle">Recyclable</option>
+            </select>
+          </div>
+          <!-- Contact for status updates -->
+          <div>
+            <label
+              for="contact-info"
+              class="block text-sm font-medium text-gray-700 dark:text-gray-300"
+              >Contact Information (Optional)</label
             >
             <input
-              type="email"
-              id="reporter-email"
-              name="reporter-email"
-              placeholder="e.g., jane@email.com"
+              type="text"
+              id="contact-info"
+              name="contact-info"
+              placeholder="e.g., jane@email.com or 0917 123 4567"
               class="mt-1 block w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-2 text-gray-900 shadow-sm transition focus:border-purple-500 focus:ring-2 focus:ring-purple-500 dark:border-electric-500/40 dark:bg-zinc-800 dark:text-white dark:focus:border-electric-500 dark:focus:ring-electric-500"
               autocomplete="off"
             />
+            <p class="mt-1.5 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+              Optional: Provide your email or phone number if you would like to
+              receive automated status updates as the LGU reviews and resolves
+              your report.
+            </p>
           </div>
           <!-- Notes textarea -->
           <div>
@@ -406,10 +431,12 @@
 
           function clearReporterFields() {
             var name = document.getElementById("reporter-name");
-            var email = document.getElementById("reporter-email");
+            var category = document.getElementById("waste-category");
+            var contact = document.getElementById("contact-info");
             var notes = document.getElementById("reporter-notes");
             if (name) name.value = "";
-            if (email) email.value = "";
+            if (category) category.selectedIndex = 0;
+            if (contact) contact.value = "";
             if (notes) notes.value = "";
             // Optionally reset camera/photo input and results too if needed
             var photoInput = document.getElementById("trash-photo-input");
