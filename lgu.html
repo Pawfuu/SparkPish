@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="LGU Administrator Portal - Basura-Pin Management Dashboard">
+  <title>LGU Admin Portal - Basura-Pin</title>
+
+  <!-- Tailwind Production Stylesheet -->
+  <link href="./dist/output.css" rel="stylesheet">
+
+  <!-- Google Font: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+  </style>
+</head>
+<body class="bg-[#f8fafc] text-slate-800 antialiased min-h-screen flex">
+
+  <!-- ==========================================
+       FIXED LEFT NAVIGATION SIDEBAR
+       ========================================== -->
+  <aside class="w-64 border-r border-slate-200 bg-white flex flex-col fixed inset-y-0 left-0 z-20">
+    <!-- Brand / Title -->
+    <div class="h-16 px-6 border-b border-slate-100 flex items-center gap-3">
+      <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-lg">
+        B
+      </div>
+      <div>
+        <h1 class="text-sm font-bold text-slate-900 tracking-tight leading-none">Basura-Pin</h1>
+        <span class="text-[10px] text-slate-500 font-medium tracking-wide uppercase">LGU Admin Portal</span>
+      </div>
+    </div>
+
+    <!-- Navigation Items -->
+    <nav class="flex-1 px-4 py-6 space-y-1">
+      <button 
+        id="nav-dashboard" 
+        class="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold rounded-lg transition-colors bg-blue-50 text-blue-700"
+      >
+        <!-- Dashboard Icon -->
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2v-4zM14 16a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2v-4z" />
+        </svg>
+        <span>Dashboard</span>
+      </button>
+
+      <button 
+        id="nav-reports" 
+        class="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium rounded-lg text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors"
+      >
+        <!-- Reports Icon -->
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        <span>Reports</span>
+      </button>
+
+      <button 
+        id="nav-map" 
+        class="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium rounded-lg text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors"
+      >
+        <!-- Map Icon -->
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+        <span>Map</span>
+      </button>
+
+      <button 
+        id="nav-analytics" 
+        class="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium rounded-lg text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors"
+      >
+        <!-- Analytics Icon -->
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        </svg>
+        <span>Analytics</span>
+      </button>
+
+      <button 
+        id="nav-settings" 
+        class="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium rounded-lg text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors"
+      >
+        <!-- Settings Icon -->
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+        <span>Settings</span>
+      </button>
+    </nav>
+
+    <!-- Footer Profile -->
+    <div class="p-4 border-t border-slate-100 flex items-center gap-3">
+      <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=256&auto=format&fit=crop" alt="LGU Admin Profile" class="w-9 h-9 rounded-full object-cover">
+      <div class="min-w-0 flex-1">
+        <p class="text-xs font-semibold text-slate-800 truncate">Hon. Maria Santos</p>
+        <p class="text-[10px] text-slate-500 font-medium truncate">Chief LGU Admin</p>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ==========================================
+       MAIN CONTENT CONTAINER
+       ========================================== -->
+  <div class="pl-64 flex-1 flex flex-col min-h-screen">
+    
+    <!-- Top Header -->
+    <header class="h-16 bg-white border-b border-slate-200 px-8 flex items-center justify-between sticky top-0 z-10">
+      <div>
+        <h2 id="view-title" class="text-lg font-bold text-slate-900">Dashboard</h2>
+      </div>
+      <div class="flex items-center gap-4">
+        <!-- Date display -->
+        <span class="text-xs text-slate-500 font-medium" id="header-date">Monday, June 29, 2026</span>
+        <div class="h-8 w-px bg-slate-200"></div>
+        <span class="text-xs font-semibold text-slate-700 tracking-wide">LGU ADMIN PORTAL</span>
+      </div>
+    </header>
+
+    <!-- Main Views Area -->
+    <main class="flex-1 p-8">
+
+      <!-- ========================================================
+           VIEW 1: DASHBOARD OVERVIEW PANEL
+           ======================================================== -->
+      <section id="view-dashboard-panel" class="space-y-6">
+        <h3 class="text-xl font-bold text-slate-900">Recent Civic Reports</h3>
+
+        <!-- Status Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm transition hover:shadow-md">
+            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Active Reports</p>
+            <p id="stat-active" class="text-4xl font-extrabold text-slate-900 mt-2">--</p>
+          </div>
+          <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm transition hover:shadow-md">
+            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Pending Verification</p>
+            <p id="stat-pending" class="text-4xl font-extrabold text-slate-900 mt-2">--</p>
+          </div>
+          <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm transition hover:shadow-md">
+            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">In Progress</p>
+            <p id="stat-progress" class="text-4xl font-extrabold text-slate-900 mt-2">--</p>
+          </div>
+          <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm transition hover:shadow-md">
+            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Resolved</p>
+            <p id="stat-resolved" class="text-4xl font-extrabold text-slate-900 mt-2">--</p>
+          </div>
+        </div>
+
+        <!-- Map Widget Card -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="px-6 py-4 border-b border-slate-100">
+            <h4 class="text-sm font-bold text-slate-900">Map Overview</h4>
+          </div>
+          <div class="p-6">
+            <!-- Simulated Map Container using our generated asset -->
+            <div class="relative w-full h-[400px] rounded-xl overflow-hidden bg-slate-100 border border-slate-200 flex items-center justify-center">
+              <img 
+                src="manila_garbage_map_1782738695199.png" 
+                alt="Manila garbage clustered reports map widget" 
+                class="w-full h-full object-cover"
+              />
+              <div class="absolute bottom-4 left-4 bg-white/95 backdrop-blur px-3 py-2 rounded-lg shadow-sm border border-slate-200 text-xs font-medium text-slate-700">
+                🔵 Clustered report locations
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================================
+           VIEW 2: DETAILED REPORTS LIST PANEL (Hidden by Default)
+           ======================================================== -->
+      <section id="view-reports-panel" class="space-y-6 hidden">
+        <div class="flex items-center justify-between">
+          <h3 class="text-xl font-bold text-slate-900">Submitted Garbage Reports</h3>
+          <!-- Quick filters count status summary -->
+          <span class="text-xs text-slate-500 font-medium" id="table-results-counter">Showing 0 reports</span>
+        </div>
+
+        <!-- Search and Sort Actions bar -->
+        <div class="bg-white p-4 rounded-xl border border-slate-200 flex flex-col sm:flex-row gap-4 items-center justify-between shadow-sm">
+          <div class="relative w-full sm:max-w-xs">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+            <input 
+              id="report-search-input" 
+              type="text" 
+              placeholder="Search reports..." 
+              class="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+            />
+          </div>
+
+          <div class="flex items-center gap-3">
+            <span class="text-xs font-semibold text-slate-500 uppercase">Sort By:</span>
+            <select 
+              id="sort-select" 
+              class="bg-slate-50 border border-slate-200 text-slate-700 text-xs rounded-lg px-3 py-2 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer"
+            >
+              <option value="id-asc">Report ID (Ascending)</option>
+              <option value="id-desc" selected>Report ID (Descending)</option>
+              <option value="status-asc">Status (A-Z)</option>
+              <option value="status-desc">Status (Z-A)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Dynamic Data Table Wrapper -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  <th class="px-6 py-4">Report ID</th>
+                  <th class="px-6 py-4">Category</th>
+                  <th class="px-6 py-4">Location</th>
+                  <th class="px-6 py-4">Submitted By</th>
+                  <th class="px-6 py-4">Status</th>
+                  <th class="px-6 py-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="reports-table-body" class="divide-y divide-slate-100 text-sm text-slate-700">
+                <!-- Javascript will inject table rows here -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 py-4 px-8 text-center text-xs text-slate-400 font-medium">
+      &copy; 2026 Basura-Pin Portal. Government Admin Portal. All Rights Reserved.
+    </footer>
+  </div>
+
+  <!-- ==========================================
+       MODAL: REPORT DETAIL DRILL-DOWN VIEW
+       ========================================== -->
+  <div id="report-detail-modal" class="fixed inset-0 z-50 overflow-y-auto hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <!-- Backdrop overlay -->
+    <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+      <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm transition-opacity" id="modal-backdrop" aria-hidden="true"></div>
+
+      <!-- Centered modal box -->
+      <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+      <div class="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full border border-slate-100">
+        
+        <!-- Modal Header -->
+        <div class="bg-slate-50 px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+          <div>
+            <h3 class="text-base font-bold text-slate-900" id="modal-report-id">Report Details</h3>
+            <p class="text-xs text-slate-500 mt-0.5">Submitted via community web app</p>
+          </div>
+          <button id="close-modal-btn" class="text-slate-400 hover:text-slate-600 transition-colors p-1.5 rounded-lg hover:bg-slate-100">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Modal Body Content -->
+        <div class="p-6 space-y-6">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            <!-- Left Info Panel -->
+            <div class="space-y-4">
+              <div>
+                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Category</span>
+                <p id="modal-category" class="text-sm font-semibold text-slate-900 mt-0.5">--</p>
+              </div>
+
+              <div>
+                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Location Address</span>
+                <p id="modal-location" class="text-sm text-slate-800 mt-0.5">--</p>
+              </div>
+
+              <div>
+                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Reported By</span>
+                <p id="modal-submitter" class="text-sm text-slate-800 mt-0.5">--</p>
+              </div>
+
+              <div class="pt-2 border-t border-slate-100">
+                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">AI Analysis Volume</span>
+                <p id="modal-ai-volume" class="text-sm font-medium text-slate-800 mt-0.5">--</p>
+              </div>
+
+              <div>
+                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Severity Score</span>
+                <div class="flex items-center gap-1.5 mt-1">
+                  <span id="modal-severity-score" class="text-sm font-bold text-slate-900">--</span>
+                  <span class="text-xs text-slate-400">/ 5</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right Visual Panel (Trash Image Placeholder) -->
+            <div class="flex flex-col">
+              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Submitted Photo</span>
+              <div class="flex-1 min-h-[180px] bg-slate-100 border border-slate-200 rounded-xl overflow-hidden flex items-center justify-center">
+                <!-- Using a standard high quality placeholder from Unsplash representing clean city / solid waste context -->
+                <img 
+                  id="modal-report-image"
+                  src="https://images.unsplash.com/photo-1530587191325-3db32d826c18?q=80&w=400&auto=format&fit=crop" 
+                  alt="Garbage report attachment" 
+                  class="w-full h-full object-cover"
+                />
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Notes / Additional Comments -->
+          <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Reporter Notes</span>
+            <p id="modal-notes" class="text-xs text-slate-700 italic mt-1">"--"</p>
+          </div>
+
+          <!-- Status Editor controls -->
+          <div class="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Current Status</span>
+              <div id="modal-status-badge" class="inline-flex items-center gap-2 mt-1 px-2.5 py-1 rounded-full text-xs font-semibold">
+                <span class="w-2 h-2 rounded-full bg-slate-400"></span>
+                <span>--</span>
+              </div>
+            </div>
+
+            <!-- Admin action to transition status -->
+            <div class="flex items-center gap-2">
+              <label for="modal-status-select" class="text-xs font-semibold text-slate-500">Update Status:</label>
+              <select 
+                id="modal-status-select"
+                class="bg-white border border-slate-200 text-xs rounded-lg px-3 py-2 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+              >
+                <option value="Pending Verification">Pending Verification</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Resolved">Resolved</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal Footer Actions -->
+        <div class="bg-slate-50 px-6 py-4 border-t border-slate-200 flex justify-end gap-3">
+          <button id="modal-btn-close-secondary" class="px-4 py-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-semibold transition-colors">
+            Cancel
+          </button>
+          <button id="modal-btn-save" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors">
+            Save Status Changes
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Admin logic script -->
+  <script src="lgu.js"></script>
+</body>
+</html>
