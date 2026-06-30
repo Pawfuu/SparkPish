@@ -48,6 +48,7 @@ import {
       id: docSnap.id.slice(0, 8).toUpperCase(),
       category: data.wasteType || "Uncategorized",
       location: data.location || "Unknown location",
+      coordinates: data.coordinates || null,
       submittedBy: data.reporterName || "Anonymous",
       contactInfo: data.contactInfo || "Not Provided",
       status: normalizeStatus(data.status),
@@ -62,6 +63,10 @@ import {
   let reports = [];
   let selectedReport = null;
   let unsubscribeReports = null;
+  let mapInstance = null;
+  let markerLayerGroup = null;
+  let dashboardMapInstance = null;
+  let dashboardLayerGroup = null;
 
   const navDashboardBtn = document.getElementById("nav-dashboard");
   const navReportsBtn = document.getElementById("nav-reports");
@@ -71,6 +76,7 @@ import {
 
   const viewDashboardPanel = document.getElementById("view-dashboard-panel");
   const viewReportsPanel = document.getElementById("view-reports-panel");
+  const viewMapPanel = document.getElementById("view-map-panel");
   const viewTitle = document.getElementById("view-title");
 
   const statActiveEl = document.getElementById("stat-active");
@@ -90,7 +96,9 @@ import {
   const modalSubmitter = document.getElementById("modal-submitter");
   const modalAiVolume = document.getElementById("modal-ai-volume");
   const modalSeverityScore = document.getElementById("modal-severity-score");
-  const modalNotes = document.getElementById("modal-notes");  const modalContactInfo = document.getElementById("modal-contact-info");  const modalStatusBadge = document.getElementById("modal-status-badge");
+  const modalNotes = document.getElementById("modal-notes");
+  const modalContactInfo = document.getElementById("modal-contact-info");
+  const modalStatusBadge = document.getElementById("modal-status-badge");
   const modalStatusSelect = document.getElementById("modal-status-select");
   const modalReportImage = document.getElementById("modal-report-image");
 
@@ -111,6 +119,7 @@ import {
         console.log("Firestore snapshot reports:", reports);
         updateDashboardMetrics(reports);
         renderReportsTable();
+        if (typeof renderMapMarkers === "function") renderMapMarkers();
 
         if (selectedReport) {
           const fresh = reports.find((r) => r.docId === selectedReport.docId);
@@ -134,6 +143,10 @@ import {
   function init() {
     setupEventListeners();
     updateDateDisplay();
+    initLeafletMap();
+    setTimeout(function () {
+      if (dashboardMapInstance) dashboardMapInstance.invalidateSize();
+    }, 100);
     subscribeToReports();
 
     window.addEventListener("beforeunload", () => {
@@ -170,6 +183,135 @@ import {
     if (statResolvedEl) statResolvedEl.textContent = String(resolvedCount);
   }
 
+  function initLeafletMap() {
+    if (!mapInstance && document.getElementById("lgu-map")) {
+      mapInstance = L.map("lgu-map").setView([14.5995, 120.9842], 13);
+
+      L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        maxZoom: 19,
+      }).addTo(mapInstance);
+
+      markerLayerGroup = L.layerGroup().addTo(mapInstance);
+    }
+
+    if (!dashboardMapInstance && document.getElementById("lgu-dashboard-map")) {
+      dashboardMapInstance = L.map("lgu-dashboard-map", { zoomControl: false }).setView(
+        [14.5995, 120.9842],
+        12
+      );
+
+      L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        maxZoom: 19,
+      }).addTo(dashboardMapInstance);
+
+      dashboardLayerGroup = L.layerGroup().addTo(dashboardMapInstance);
+    }
+  }
+
+  function getReportLatLng(report) {
+    const coords = report.coordinates;
+    if (coords && typeof coords.lat === "number" && typeof coords.lng === "number") {
+      return [coords.lat, coords.lng];
+    }
+    if (Array.isArray(coords) && coords.length >= 2) {
+      return [coords[0], coords[1]];
+    }
+    // HACKATHON FALLBACK: Generate consistent pin near Manila if GPS denied
+    let hash = 0;
+    for (let i = 0; i < report.id.length; i++) {
+      hash = report.id.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const randomOffsetLat = (Math.abs(hash) % 100) / 15000;
+    const randomOffsetLng = (Math.abs(hash >> 2) % 100) / 15000;
+    return [14.5995 + randomOffsetLat, 120.9842 + randomOffsetLng];
+  }
+
+  function buildMarkerHtml(report) {
+    let pinColorClass = "text-blue-500";
+    let pulseHtml = "";
+
+    if (report.status === "Resolved") {
+      pinColorClass = "text-slate-400";
+    } else if (report.severity >= 4) {
+      pinColorClass = "text-red-600";
+      // Pulse centered specifically on the top bulb of the teardrop pin
+      pulseHtml = '<span class="absolute top-[10%] left-[20%] inline-flex h-[60%] w-[60%] rounded-full bg-red-400 opacity-60 animate-ping"></span>';
+    } else if (report.severity >= 2) {
+      pinColorClass = "text-amber-500";
+    }
+
+    const svgIcon = `
+      <svg class="relative z-10 w-full h-full drop-shadow-md ${pinColorClass}" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+      </svg>
+    `;
+
+    return '<div class="relative w-full h-full">' + pulseHtml + svgIcon + '</div>';
+  }
+
+  function renderMapMarkers() {
+    if (!markerLayerGroup && !dashboardLayerGroup) return;
+
+    if (markerLayerGroup) markerLayerGroup.clearLayers();
+    if (dashboardLayerGroup) dashboardLayerGroup.clearLayers();
+
+    reports.forEach((report) => {
+      const latLng = getReportLatLng(report);
+
+      const popupHtml =
+        '<div class="text-sm space-y-2 p-1 min-w-[180px]">' +
+        "<p><strong>Report ID:</strong> " +
+        report.id +
+        "</p>" +
+        "<p><strong>Severity:</strong> " +
+        report.severity +
+        " / 5</p>" +
+        "<p><strong>Category:</strong> " +
+        report.category +
+        "</p>" +
+        "<p><strong>Status:</strong> " +
+        report.status +
+        "</p>" +
+        '<button type="button" onclick="window.openDetailModal(\'' +
+        report.docId +
+        "')" +
+        ' class="mt-2 w-full px-3 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700">' +
+        "View Details</button>" +
+        "</div>";
+
+      if (markerLayerGroup) {
+        const icon = L.divIcon({
+          className: "bg-transparent border-0",
+          html: buildMarkerHtml(report),
+          iconSize: [32, 32],      
+          iconAnchor: [16, 32],    
+          popupAnchor: [0, -32],   
+        });
+
+        const marker = L.marker(latLng, { icon });
+        marker.bindPopup(popupHtml);
+        markerLayerGroup.addLayer(marker);
+      }
+
+      if (dashboardLayerGroup) {
+        const dashboardIcon = L.divIcon({
+          className: "bg-transparent border-0",
+          html: buildMarkerHtml(report),
+          iconSize: [32, 32],      
+          iconAnchor: [12, 24],
+        });
+
+        const dashboardMarker = L.marker(latLng, {
+          icon: dashboardIcon,
+          interactive: false,
+        });
+        dashboardLayerGroup.addLayer(dashboardMarker);
+      }
+    });
+  }
+
   function switchView(viewName) {
     const navButtons = [
       navDashboardBtn,
@@ -178,6 +320,7 @@ import {
       navAnalyticsBtn,
       navSettingsBtn,
     ];
+
     navButtons.forEach((btn) => {
       if (btn) {
         btn.classList.remove("bg-blue-50", "text-blue-700", "font-semibold");
@@ -192,9 +335,10 @@ import {
 
     viewDashboardPanel.classList.add("hidden");
     viewReportsPanel.classList.add("hidden");
+    viewMapPanel.classList.add("hidden");
 
     if (viewName === "dashboard") {
-        viewDashboardPanel.classList.remove("hidden");
+      viewDashboardPanel.classList.remove("hidden");
       if (navDashboardBtn) {
         navDashboardBtn.classList.add("bg-blue-50", "text-blue-700", "font-semibold");
         navDashboardBtn.classList.remove(
@@ -204,8 +348,13 @@ import {
           "font-medium"
         );
       }
-      viewTitle.textContent = "Dashboard";
+      if (viewTitle) viewTitle.textContent = "Dashboard";
       updateDashboardMetrics(reports);
+      initLeafletMap();
+      if (typeof renderMapMarkers === "function") renderMapMarkers();
+      setTimeout(function () {
+        if (dashboardMapInstance) dashboardMapInstance.invalidateSize();
+      }, 100);
     } else if (viewName === "reports") {
       viewReportsPanel.classList.remove("hidden");
       if (navReportsBtn) {
@@ -217,8 +366,25 @@ import {
           "font-medium"
         );
       }
-      viewTitle.textContent = "Civic Reports Database";
+      if (viewTitle) viewTitle.textContent = "Civic Reports Database";
       renderReportsTable();
+    } else if (viewName === "map") {
+      viewMapPanel.classList.remove("hidden");
+      if (navMapBtn) {
+        navMapBtn.classList.add("bg-blue-50", "text-blue-700", "font-semibold");
+        navMapBtn.classList.remove(
+          "text-slate-600",
+          "hover:bg-slate-50",
+          "hover:text-slate-900",
+          "font-medium"
+        );
+      }
+      if (viewTitle) viewTitle.textContent = "Live Reports Map";
+      initLeafletMap();
+      renderMapMarkers();
+      setTimeout(function () {
+        if (mapInstance) mapInstance.invalidateSize();
+      }, 100);
     }
   }
 
@@ -448,7 +614,11 @@ import {
       navReportsBtn.addEventListener("click", () => switchView("reports"));
     }
 
-    [navMapBtn, navAnalyticsBtn, navSettingsBtn].forEach((nav) => {
+    if (navMapBtn) {
+      navMapBtn.addEventListener("click", () => switchView("map"));
+    }
+
+    [navAnalyticsBtn, navSettingsBtn].forEach((nav) => {
       if (nav) {
         nav.addEventListener("click", function () {
           alert(
@@ -457,6 +627,8 @@ import {
         });
       }
     });
+
+    window.openDetailModal = openDetailModal;
 
     if (reportSearchInput) {
       reportSearchInput.addEventListener("input", renderReportsTable);

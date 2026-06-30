@@ -19,8 +19,16 @@
       font-family: 'Inter', sans-serif;
     }
   </style>
+  <!-- Leaflet Map CSS and JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body class="bg-[#f8fafc] text-slate-800 antialiased min-h-screen flex">
+  <!-- Tailwind safelist for Leaflet marker classes injected via JS -->
+  <div class="hidden" aria-hidden="true">
+    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+    <span class="relative flex h-4 w-4 rounded-full bg-red-600 bg-slate-400 bg-amber-500 bg-blue-500 border-2 border-white shadow-md"></span>
+  </div>
 
   <!-- ==========================================
        FIXED LEFT NAVIGATION SIDEBAR
@@ -161,13 +169,9 @@
           </div>
           <div class="p-6">
             <!-- Simulated Map Container using our generated asset -->
-            <div class="relative w-full h-[400px] rounded-xl overflow-hidden bg-slate-100 border border-slate-200 flex items-center justify-center">
-              <img 
-                src="../manila_garbage_map_1782738695199.png" 
-                alt="Manila garbage clustered reports map widget" 
-                class="w-full h-full object-cover"
-              />
-              <div class="absolute bottom-4 left-4 bg-white/95 backdrop-blur px-3 py-2 rounded-lg shadow-sm border border-slate-200 text-xs font-medium text-slate-700">
+            <div class="relative w-full h-[400px] rounded-xl overflow-hidden bg-slate-100 border border-slate-200">
+              <div id="lgu-dashboard-map" class="absolute inset-0 w-full h-full z-0"></div>
+              <div class="absolute bottom-4 left-4 bg-white/95 backdrop-blur px-3 py-2 rounded-lg shadow-sm border border-slate-200 text-xs font-medium text-slate-700 z-10 pointer-events-none">
                 🔵 Clustered report locations
               </div>
             </div>
@@ -237,6 +241,17 @@
         </div>
       </section>
 
+      <!-- ========================================================
+           VIEW 3: LIVE REPORTS MAP PANEL (Hidden by Default)
+           ======================================================== -->
+      <section id="view-map-panel" class="space-y-6 hidden">
+        <div class="flex items-center justify-between">
+          <h3 class="text-xl font-bold text-slate-900">Live Reports Map</h3>
+        </div>
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden h-[600px] w-full relative z-0">
+          <div id="lgu-map" class="absolute inset-0 w-full h-full"></div>
+        </div>
+      </section>
     </main>
 
     <!-- Footer -->
