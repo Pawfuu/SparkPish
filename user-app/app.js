@@ -9,6 +9,7 @@
  */
 
 import { GEMINI_API_KEY } from "./config.js";
+import { submitTrashReport } from "../shared/report-service.js";
 
 // ---------------------------------------------------------------------------
 // API configuration
@@ -32,7 +33,8 @@ const submitBtn = document.getElementById("submit-report-btn");
 const submitSpinner = document.getElementById("submit-spinner");
 const submitText = document.getElementById("submit-text");
 const reporterName = document.getElementById("reporter-name");
-const reporterEmail = document.getElementById("reporter-email");
+const wasteCategory = document.getElementById("waste-category");
+const contactInfo = document.getElementById("contact-info");
 const reporterNotes = document.getElementById("reporter-notes");
 
 if (!photoInput || !summaryEl || !submitBtn) {
@@ -110,9 +112,44 @@ function setSubmitLoading(isLoading) {
 function getReporterData() {
   return {
     name: reporterName ? reporterName.value.trim() : "",
-    email: reporterEmail ? reporterEmail.value.trim() : "",
     notes: reporterNotes ? reporterNotes.value.trim() : "",
   };
+}
+
+/** Read report fields used for Firestore submission */
+function getReportFormData() {
+  const contact = contactInfo ? contactInfo.value.trim() : "";
+  return {
+    wasteType: wasteCategory ? wasteCategory.value : "",
+    contactInfo: contact || null,
+  };
+}
+
+/** Resolve location from URL params or the header display */
+function getReportLocation() {
+  const params = new URLSearchParams(window.location.search);
+  const barangay = params.get("barangay");
+  const street = params.get("street");
+
+  if (barangay && street) {
+    return "Brgy " + barangay + ", " + street;
+  }
+  if (barangay) {
+    return "Brgy " + barangay;
+  }
+  if (street) {
+    return street;
+  }
+
+  const locEl = document.getElementById("street-location");
+  if (locEl) {
+    const text = locEl.textContent.replace(/^📍 Location:\s*/, "").trim();
+    if (text) {
+      return text;
+    }
+  }
+
+  return "Unknown location";
 }
 
 /** Build the full prompt, optionally enriched with reporter notes */
@@ -145,6 +182,33 @@ function getErrorMessage(error) {
 
   return error.message || "Unknown error. Please try again.";
 }
+
+  // ---------------------------------------------------------------------------
+  // Geolocation API (Hybrid GPS Upgrade)
+  // ---------------------------------------------------------------------------
+  
+  /** Helper to get exact GPS coordinates if the user allows it */
+  function getUserCoordinates() {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        resolve(null); // Browser doesn't support GPS
+      }
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          resolve({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          });
+        },
+        (error) => {
+          console.warn("GPS denied or unavailable. Falling back to text location.", error);
+          resolve(null); // User denied or error occurred
+        },
+        { enableHighAccuracy: true, timeout: 5000 } // 5 second timeout so it doesn't hang
+      );
+    });
+  }
+
 
 // ---------------------------------------------------------------------------
 // Photo preview (no API call on selection)
@@ -293,7 +357,15 @@ async function analyzeImageWithGemini(base64, mimeType, promptText) {
 
 /** Pull the JSON string from Gemini's response envelope and parse it */
 function extractJsonFromGeminiResponse(data) {
-  const text =
+  // Catch safety blocks (memes or inappropriate images)
+  if (data && data.promptFeedback && data.promptFeedback.blockReason) {
+    return { valid: false, error: "Image blocked by AI safety filters." };
+  }
+  if (data && data.candidates && data.candidates[0].finishReason === "SAFETY") {
+    return { valid: false, error: "Image flagged as inappropriate by AI." };
+  }
+
+  let text =
     data &&
     data.candidates &&
     data.candidates[0] &&
@@ -306,10 +378,14 @@ function extractJsonFromGeminiResponse(data) {
     throw new Error("Gemini returned an empty or unexpected response.");
   }
 
+  // FIX: Strip markdown formatting (```json and ```) before parsing
+  text = text.replace(/```json/gi, "").replace(/```/g, "").trim();
+
   try {
     return JSON.parse(text);
   } catch (parseError) {
-    throw new Error("Could not parse Gemini JSON: " + text);
+    console.error("Raw Gemini output that failed to parse:", text);
+    throw new Error("Could not parse Gemini JSON response.");
   }
 }
 
@@ -318,7 +394,7 @@ function extractJsonFromGeminiResponse(data) {
 // ---------------------------------------------------------------------------
 
 /** Update #ai-summary and open the appropriate flash modal */
-function handleValidationResult(result, reporter) {
+function handleValidationResult(result, reporter, reportId, contact) {
   if (result.valid === true) {
     setSummary(
       "Trash detected!\n\n" +
@@ -328,8 +404,9 @@ function handleValidationResult(result, reporter) {
         "Severity score: " +
         (result.severity_score != null ? result.severity_score : "N/A") +
         " / 5" +
+        (reportId ? "\n\nReport ID: " + reportId : "") +
         (reporter.name ? "\n\nReported by: " + reporter.name : "") +
-        (reporter.email ? "\nContact: " + reporter.email : ""),
+        (contact ? "\nContact: " + contact : ""),
     );
 
     if (typeof window.showSuccessModal === "function") {
@@ -338,6 +415,7 @@ function handleValidationResult(result, reporter) {
     return;
   }
 
+  // Gracefully present error text without breaking DOM state
   setSummary(result.error || "No waste detected");
 
   if (typeof window.showErrorModal === "function") {
@@ -346,19 +424,31 @@ function handleValidationResult(result, reporter) {
 }
 
 if (submitBtn) {
-  submitBtn.addEventListener("click", async function () {
-    // Prevent double-submit while a request is in flight
+  submitBtn.addEventListener("click", async function (event) {
+      // Added this line to STOP the page from refreshing when user submits unrelated image
+      event.preventDefault();
+
     if (isSubmitting) return;
 
     if (!isApiKeyConfigured()) {
-      setSummary(
-        "API key missing. Copy config.example.js to config.js and add your Gemini API key.",
-      );
+      setSummary("API key missing. Copy config.example.js to config.js and add your Gemini API key.");
       return;
     }
 
     if (!selectedFile) {
       setSummary("Please snap a trash photo before submitting your report.");
+      if (typeof window.showErrorModal === "function") {
+        window.showErrorModal("Please snap a trash photo before submitting your report."); // Pass the exact string!
+      }
+      return;
+    }
+
+    const reportForm = getReportFormData();
+    if (!reportForm.wasteType) {
+      setSummary("Please select a trash category before submitting your report.");
+      if (typeof window.showErrorModal === "function") {
+        window.showErrorModal("Please select a trash category before submitting your report."); // Pass the exact string!
+      }
       return;
     }
 
@@ -367,35 +457,66 @@ if (submitBtn) {
 
     isSubmitting = true;
     setSubmitLoading(true);
-    setSummary("Analyzing image... please wait.");
-
+    
     try {
+      // 1. Tell user we are getting location
+      setSummary("Grabbing location and analyzing image... please wait.");
+      
+      // 2. Fetch exact GPS (or null if denied/timeout)
+      const coords = await getUserCoordinates();
+
+      // 3. Translate image
       const imageData = await fileToBase64(selectedFile);
+      
+      // 4. AI Validation
       const result = await analyzeImageWithGemini(
         imageData.base64,
         imageData.mimeType,
         promptText,
       );
 
+      // Handle validation errors instantly before attempting Firestore uploads
+      if (result.valid !== true) {
+        handleValidationResult(result, reporter);
+        // Add this to ensure AI errors (like "blocked by safety filter") show up clearly
+        if (typeof window.showErrorModal === "function") {
+             window.showErrorModal(result.error || "No waste detected"); 
+        }
+        setSubmitLoading(false);
+        isSubmitting = false;
+        return
+      }
+
+      setSummary("Trash verified. Uploading report... please wait.");
+
+      // Fixed: Passing contactInfo, notes, and severityScore straight to the data service
+      const reportData = {
+        wasteType: reportForm.wasteType,
+        volumeEstimate: result.volume || "Unknown",
+        location: getReportLocation(),
+        coordinates: coords, // added gps coordinates here
+        contactInfo: reportForm.contactInfo,
+        notes: reporter.notes,
+        severityScore: result.severity_score != null ? result.severity_score : 3
+      };
+
+      const reportId = await submitTrashReport(reportData, selectedFile);
+
       console.log("Basura-Pin report submitted:", {
         reporter: reporter,
         validation: result,
+        reportId: reportId,
       });
 
-      handleValidationResult(result, reporter);
+      handleValidationResult(result, reporter, reportId, reportForm.contactInfo);
     } catch (error) {
-      console.error("Basura-Pin analysis error:", error);
-
-      setSummary(
-        "Something went wrong while analyzing your photo.\n\n" +
-          getErrorMessage(error),
-      );
+      console.error("Basura-Pin submission error:", error);
+      setSummary("Something went wrong while processing your report.\n\n" + getErrorMessage(error));
 
       if (typeof window.showErrorModal === "function") {
         window.showErrorModal();
       }
     } finally {
-      // Always release the UI — even on timeout, network failure, or thrown errors
       isSubmitting = false;
       setSubmitLoading(false);
     }
