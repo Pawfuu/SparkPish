@@ -24,9 +24,9 @@ const API_URL =
 
 /** Base validator prompt — reporter notes appended at submit time if provided */
 const VALIDATOR_PROMPT_BASE =
-  'Analyze this image. Step 1: Does this image clearly show uncollected solid waste, garbage, or an illegal dumpsite? Step 2: If false, return the exact JSON: `{"valid": false, "error": "No waste detected"}`. Step 3: If true, estimate the volume and return JSON: `{"valid": true, "volume": "[estimate]", "severity_score": [1-5]}`.';
+  'Analyze this image. Step 1: Does this image clearly show uncollected solid waste, garbage, or an illegal dumpsite? Step 2: If false, return the exact JSON: `{"valid": false, "error": "No waste detected"}`. Step 3: If true, estimate the volume and rate the severity of the waste accumulation from 1 (minor) to 5 (critical health/environmental hazard). Return JSON: `{"valid": true, "volume": "[estimate]", "severity_score": [1-5]}`.';
 
-// DOM references
+  // DOM references
 const photoInput = document.getElementById("trash-photo-input");
 const summaryEl = document.getElementById("ai-summary");
 const submitBtn = document.getElementById("submit-report-btn");
@@ -107,6 +107,65 @@ function setSubmitLoading(isLoading) {
     submitText.textContent = isLoading ? "Analyzing..." : "Submit Trash Report";
   }
 }
+
+// ---------------------------------------------------------------------------
+// Stepper Logic
+// ---------------------------------------------------------------------------
+
+/** Dynamically updates the visual progress bar based on form state */
+function updateStepper() {
+  let activeStep = 1; // Default to step 1
+  
+  const contactEl = document.getElementById('reporter-contact');
+  const categoryEl = document.getElementById('waste-category');
+
+  // Logic to determine the current step
+  if (selectedFile) {
+    activeStep = 2; // Photo uploaded
+  }
+  if (selectedFile && categoryEl?.value && contactEl?.validity.valid) {
+    activeStep = 3; // Required details filled
+  }
+  if (isSubmitting) {
+    activeStep = 4; // User clicked submit
+  }
+
+  const steps = document.querySelectorAll('.stepper-step');
+  const progressBar = document.getElementById('stepper-progress-bar');
+  
+  // Calculate width for the connecting line (0%, 33.3%, 66.6%, 100%)
+  if (progressBar && steps.length > 1) {
+    const progressPercentage = ((activeStep - 1) / (steps.length - 1)) * 100;
+    progressBar.style.width = `${progressPercentage}%`;
+  }
+
+  // Toggle Tailwind classes for active/inactive states
+  steps.forEach((stepEl, index) => {
+    const stepNum = index + 1;
+    const circle = stepEl.querySelector('.step-circle');
+    const label = stepEl.querySelector('.step-label');
+
+    if (stepNum <= activeStep) {
+      // Completed or Current Step
+      circle.classList.remove('bg-gray-200', 'text-gray-500');
+      circle.classList.add('bg-green-700', 'text-white');
+      label.classList.remove('text-gray-400', 'font-semibold');
+      label.classList.add('text-green-800', 'font-bold');
+    } else {
+      // Inactive Future Step
+      circle.classList.remove('bg-green-700', 'text-white');
+      circle.classList.add('bg-gray-200', 'text-gray-500');
+      label.classList.remove('text-green-800', 'font-bold');
+      label.classList.add('text-gray-400', 'font-semibold');
+    }
+  });
+}
+
+// Event Listeners to trigger stepper updates dynamically
+if (photoInput) photoInput.addEventListener("change", updateStepper);
+document.getElementById('waste-category')?.addEventListener("change", updateStepper);
+document.getElementById('reporter-contact')?.addEventListener("input", updateStepper);
+
 
 /** Read optional reporter fields from the form */
 function getReporterData() {
@@ -397,16 +456,10 @@ function extractJsonFromGeminiResponse(data) {
 function handleValidationResult(result, reporter, reportId, contact) {
   if (result.valid === true) {
     setSummary(
-      "Trash detected!\n\n" +
-        "Estimated volume: " +
-        (result.volume || "Unknown") +
-        "\n" +
-        "Severity score: " +
-        (result.severity_score != null ? result.severity_score : "N/A") +
-        " / 5" +
-        (reportId ? "\n\nReport ID: " + reportId : "") +
-        (reporter.name ? "\n\nReported by: " + reporter.name : "") +
-        (contact ? "\nContact: " + contact : ""),
+      "✅ AI Analysis Complete\n\n" +
+        "Severity Level: " + severity + " / 5  " + stars + "\n" +
+        "Estimated Volume: " + (result.volume || "Unknown") +
+        (reportId ? "\n\nReport ID: " + reportId : "")
     );
 
     if (typeof window.showSuccessModal === "function") {
@@ -457,6 +510,7 @@ if (submitBtn) {
 
     isSubmitting = true;
     setSubmitLoading(true);
+    updateStepper();
     
     try {
       // 1. Tell user we are getting location
@@ -489,13 +543,17 @@ if (submitBtn) {
 
       setSummary("Trash verified. Uploading report... please wait.");
 
+      // Gather contact details
+      const userEmail = document.getElementById('reporter-email').value.trim();
+      const userPhone = document.getElementById('reporter-phone').value.trim();
+
       // Fixed: Passing contactInfo, notes, and severityScore straight to the data service
       const reportData = {
         wasteType: reportForm.wasteType,
         volumeEstimate: result.volume || "Unknown",
         location: getReportLocation(),
         coordinates: coords, // added gps coordinates here
-        contactInfo: reportForm.contactInfo,
+        contactInfo: `Email: ${userEmail} | Phone: ${userPhone}`,
         notes: reporter.notes,
         severityScore: result.severity_score != null ? result.severity_score : 3
       };
@@ -519,6 +577,7 @@ if (submitBtn) {
     } finally {
       isSubmitting = false;
       setSubmitLoading(false);
+      updateStepper();
     }
   });
 }
