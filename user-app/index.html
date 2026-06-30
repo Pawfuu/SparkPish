@@ -376,7 +376,7 @@
           >
             Error!
           </h3>
-          <p class="text-gray-600 dark:text-gray-300 mb-6 text-center">
+          <p id= "error-modal-msg"class="text-gray-600 dark:text-gray-300 mb-6 text-center">
             Something went wrong or no trash was detected. Please try again.
           </p>
           <button
@@ -425,8 +425,20 @@
             if (successModal) successModal.classList.remove("hidden");
           };
 
-          window.showErrorModal = function () {
-            if (errorModal) errorModal.classList.remove("hidden");
+          window.showErrorModal = function (customMessage) {
+            if (errorModal) {
+              // Update the text dynamically if a message is provided
+              var msgElement = document.getElementById("error-modal-msg");
+              if (msgElement) {
+                if (customMessage) {
+                  msgElement.textContent = customMessage;
+                } else {
+                  // Fallback to the default message
+                  msgElement.textContent = "Something went wrong or no trash was detected. Please try again.";
+                }
+              }
+              errorModal.classList.remove("hidden");
+            }
           };
 
           function clearReporterFields() {
@@ -458,7 +470,6 @@
           if (closeErrorBtn) {
             closeErrorBtn.addEventListener("click", function () {
               if (errorModal) errorModal.classList.add("hidden");
-              clearReporterFields();
             });
           }
 
@@ -471,7 +482,6 @@
               }
               if (errorModal && !errorModal.classList.contains("hidden")) {
                 errorModal.classList.add("hidden");
-                clearReporterFields();
               }
             }
           });

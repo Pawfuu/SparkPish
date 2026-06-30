@@ -38,6 +38,7 @@ export async function submitTrashReport(reportData, imageFile) {
     wasteType: reportData.wasteType,
     volumeEstimate: reportData.volumeEstimate,
     location: reportData.location,
+    coordinates: reportData.coordinates || null,
     status: "pending",
     contactInfo: reportData.contactInfo || null,
     notes: reportData.notes || "",

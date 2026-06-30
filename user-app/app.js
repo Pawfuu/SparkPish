@@ -183,6 +183,33 @@ function getErrorMessage(error) {
   return error.message || "Unknown error. Please try again.";
 }
 
+  // ---------------------------------------------------------------------------
+  // Geolocation API (Hybrid GPS Upgrade)
+  // ---------------------------------------------------------------------------
+  
+  /** Helper to get exact GPS coordinates if the user allows it */
+  function getUserCoordinates() {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        resolve(null); // Browser doesn't support GPS
+      }
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          resolve({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          });
+        },
+        (error) => {
+          console.warn("GPS denied or unavailable. Falling back to text location.", error);
+          resolve(null); // User denied or error occurred
+        },
+        { enableHighAccuracy: true, timeout: 5000 } // 5 second timeout so it doesn't hang
+      );
+    });
+  }
+
+
 // ---------------------------------------------------------------------------
 // Photo preview (no API call on selection)
 // ---------------------------------------------------------------------------
@@ -330,7 +357,15 @@ async function analyzeImageWithGemini(base64, mimeType, promptText) {
 
 /** Pull the JSON string from Gemini's response envelope and parse it */
 function extractJsonFromGeminiResponse(data) {
-  const text =
+  // Catch safety blocks (memes or inappropriate images)
+  if (data && data.promptFeedback && data.promptFeedback.blockReason) {
+    return { valid: false, error: "Image blocked by AI safety filters." };
+  }
+  if (data && data.candidates && data.candidates[0].finishReason === "SAFETY") {
+    return { valid: false, error: "Image flagged as inappropriate by AI." };
+  }
+
+  let text =
     data &&
     data.candidates &&
     data.candidates[0] &&
@@ -343,10 +378,14 @@ function extractJsonFromGeminiResponse(data) {
     throw new Error("Gemini returned an empty or unexpected response.");
   }
 
+  // FIX: Strip markdown formatting (```json and ```) before parsing
+  text = text.replace(/```json/gi, "").replace(/```/g, "").trim();
+
   try {
     return JSON.parse(text);
   } catch (parseError) {
-    throw new Error("Could not parse Gemini JSON: " + text);
+    console.error("Raw Gemini output that failed to parse:", text);
+    throw new Error("Could not parse Gemini JSON response.");
   }
 }
 
@@ -385,7 +424,10 @@ function handleValidationResult(result, reporter, reportId, contact) {
 }
 
 if (submitBtn) {
-  submitBtn.addEventListener("click", async function () {
+  submitBtn.addEventListener("click", async function (event) {
+      // Added this line to STOP the page from refreshing when user submits unrelated image
+      event.preventDefault();
+
     if (isSubmitting) return;
 
     if (!isApiKeyConfigured()) {
@@ -395,12 +437,18 @@ if (submitBtn) {
 
     if (!selectedFile) {
       setSummary("Please snap a trash photo before submitting your report.");
+      if (typeof window.showErrorModal === "function") {
+        window.showErrorModal("Please snap a trash photo before submitting your report."); // Pass the exact string!
+      }
       return;
     }
 
     const reportForm = getReportFormData();
     if (!reportForm.wasteType) {
       setSummary("Please select a trash category before submitting your report.");
+      if (typeof window.showErrorModal === "function") {
+        window.showErrorModal("Please select a trash category before submitting your report."); // Pass the exact string!
+      }
       return;
     }
 
@@ -409,10 +457,18 @@ if (submitBtn) {
 
     isSubmitting = true;
     setSubmitLoading(true);
-    setSummary("Analyzing image... please wait.");
-
+    
     try {
+      // 1. Tell user we are getting location
+      setSummary("Grabbing location and analyzing image... please wait.");
+      
+      // 2. Fetch exact GPS (or null if denied/timeout)
+      const coords = await getUserCoordinates();
+
+      // 3. Translate image
       const imageData = await fileToBase64(selectedFile);
+      
+      // 4. AI Validation
       const result = await analyzeImageWithGemini(
         imageData.base64,
         imageData.mimeType,
@@ -422,9 +478,13 @@ if (submitBtn) {
       // Handle validation errors instantly before attempting Firestore uploads
       if (result.valid !== true) {
         handleValidationResult(result, reporter);
+        // Add this to ensure AI errors (like "blocked by safety filter") show up clearly
+        if (typeof window.showErrorModal === "function") {
+             window.showErrorModal(result.error || "No waste detected"); 
+        }
         setSubmitLoading(false);
         isSubmitting = false;
-        return;
+        return
       }
 
       setSummary("Trash verified. Uploading report... please wait.");
@@ -434,6 +494,7 @@ if (submitBtn) {
         wasteType: reportForm.wasteType,
         volumeEstimate: result.volume || "Unknown",
         location: getReportLocation(),
+        coordinates: coords, // added gps coordinates here
         contactInfo: reportForm.contactInfo,
         notes: reporter.notes,
         severityScore: result.severity_score != null ? result.severity_score : 3
