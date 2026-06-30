@@ -48,6 +48,12 @@ let selectedFile = null;
 let previewObjectUrl = null;
 let isSubmitting = false;
 
+// Map state
+let finalCoordinates = null;
+let finalAddress = "";
+let mapInstance = null;
+let mapMarker = null;
+
 // ---------------------------------------------------------------------------
 // Startup: validate API key configuration
 // ---------------------------------------------------------------------------
@@ -242,33 +248,6 @@ function getErrorMessage(error) {
   return error.message || "Unknown error. Please try again.";
 }
 
-  // ---------------------------------------------------------------------------
-  // Geolocation API (Hybrid GPS Upgrade)
-  // ---------------------------------------------------------------------------
-  
-  /** Helper to get exact GPS coordinates if the user allows it */
-  function getUserCoordinates() {
-    return new Promise((resolve) => {
-      if (!navigator.geolocation) {
-        resolve(null); // Browser doesn't support GPS
-      }
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          resolve({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          });
-        },
-        (error) => {
-          console.warn("GPS denied or unavailable. Falling back to text location.", error);
-          resolve(null); // User denied or error occurred
-        },
-        { enableHighAccuracy: true, timeout: 5000 } // 5 second timeout so it doesn't hang
-      );
-    });
-  }
-
-
 // ---------------------------------------------------------------------------
 // Photo preview (no API call on selection)
 // ---------------------------------------------------------------------------
@@ -449,6 +428,126 @@ function extractJsonFromGeminiResponse(data) {
 }
 
 // ---------------------------------------------------------------------------
+// Leaflet Map & Location Logic
+// ---------------------------------------------------------------------------
+const mapModal = document.getElementById("map-modal");
+const openMapBtn = document.getElementById("open-map-btn");
+const closeMapIcon = document.getElementById("close-map-icon");
+const confirmBtn = document.getElementById("confirm-location-btn");
+const gpsBtn = document.getElementById("gps-fallback-btn");
+const displayLocation = document.getElementById("display-location");
+const mapAddressText = document.getElementById("map-address-text");
+
+// Default to Metro Manila
+const defaultLat = 14.5995;
+const defaultLng = 120.9842; 
+
+function initMap() {
+  if (mapInstance) {
+    mapInstance.invalidateSize(); // Fixes gray tiles if map loaded while hidden
+    return;
+  }
+
+  mapInstance = L.map('leaflet-map').setView([defaultLat, defaultLng], 13);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(mapInstance);
+
+  // Initialize Marker
+  mapMarker = L.marker([defaultLat, defaultLng], { draggable: true }).addTo(mapInstance);
+
+  // REMOVED: Leaflet Control Geocoder was removed to prevent double-search confusion.
+
+  // Update address when marker is dragged (Fine-tuning)
+  mapMarker.on('dragend', function (e) {
+    const position = mapMarker.getLatLng();
+    updateAddressText(position.lat, position.lng);
+  });
+
+  // Click map to move marker (Fine-tuning)
+  mapInstance.on('click', function(e) {
+    mapMarker.setLatLng(e.latlng);
+    updateAddressText(e.latlng.lat, e.latlng.lng);
+  });
+}
+
+// Reverse Geocode (Lat/Lng -> Address) using Nominatim
+async function updateAddressText(lat, lng) {
+  mapAddressText.textContent = "Fetching address...";
+  try {
+    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
+    const data = await response.json();
+    if (data && data.display_name) {
+      finalAddress = data.display_name;
+      mapAddressText.textContent = finalAddress;
+      finalCoordinates = { lat, lng };
+    }
+  } catch (err) {
+    mapAddressText.textContent = "Location selected (Address unavailable)";
+    finalCoordinates = { lat, lng };
+    finalAddress = "Unknown Pin Location";
+  }
+}
+
+// Modal Controls - UPDATED to sync with outside search
+openMapBtn?.addEventListener("click", () => {
+  mapModal.classList.remove("hidden");
+  setTimeout(() => {
+    initMap();
+    
+    // If the user already searched outside, jump the map directly to that spot!
+    if (finalCoordinates) {
+      mapInstance.setView([finalCoordinates.lat, finalCoordinates.lng], 17);
+      mapMarker.setLatLng([finalCoordinates.lat, finalCoordinates.lng]);
+      mapAddressText.textContent = finalAddress;
+    } else {
+      updateAddressText(defaultLat, defaultLng);
+    }
+  }, 100); 
+});
+
+const closeMap = () => mapModal.classList.add("hidden");
+closeMapIcon?.addEventListener("click", closeMap);
+
+// Confirm Button
+confirmBtn?.addEventListener("click", () => {
+  if (finalCoordinates) {
+    const searchInput = document.getElementById("map-search-input");
+    if (searchInput) {
+        searchInput.value = finalAddress;
+        // Make sure the clear 'X' button shows up since it now has text
+        document.getElementById('clear-search-btn')?.classList.remove('hidden');
+    }
+    updateStepper(); // Update stepper progress
+    closeMap();
+  }
+});
+
+// GPS Fallback Button
+gpsBtn?.addEventListener("click", () => {
+  gpsBtn.innerHTML = "Locating...";
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        mapInstance.setView([latitude, longitude], 17);
+        mapMarker.setLatLng([latitude, longitude]);
+        updateAddressText(latitude, longitude);
+        gpsBtn.innerHTML = "📍 Use My Current GPS";
+      },
+      (error) => {
+        alert("Could not get GPS location. Please drag the pin manually.");
+        gpsBtn.innerHTML = "📍 Use My Current GPS";
+      },
+      { enableHighAccuracy: true, timeout: 5000 }
+    );
+  } else {
+    alert("Geolocation is not supported by your browser.");
+  }
+});
+
+// ---------------------------------------------------------------------------
 // Submit handler
 // ---------------------------------------------------------------------------
 
@@ -513,13 +612,10 @@ if (submitBtn) {
     updateStepper();
     
     try {
-      // 1. Tell user we are getting location
-      setSummary("Grabbing location and analyzing image... please wait.");
-      
-      // 2. Fetch exact GPS (or null if denied/timeout)
-      const coords = await getUserCoordinates();
-
-      // 3. Translate image
+      // 1. Tell user we are analyzing (Location is already grabbed from the map!)
+      setSummary("Analyzing image... please wait.");
+            
+      // 2. Translate image
       const imageData = await fileToBase64(selectedFile);
       
       // 4. AI Validation
@@ -543,21 +639,22 @@ if (submitBtn) {
 
       setSummary("Trash verified. Uploading report... please wait.");
 
-      // Gather contact details
-      const userEmail = document.getElementById('reporter-email').value.trim();
-      const userPhone = document.getElementById('reporter-phone').value.trim();
+      // Gather contact details from the unified input
+      const contactInput = document.getElementById('reporter-contact');
+      const contactValue = contactInput ? contactInput.value.trim() : "Not Provided";
+      const reporterName = document.getElementById("reporter-name");
 
-      // Fixed: Passing contactInfo, notes, and severityScore straight to the data service
+      // Ensure we send all necessary data to the service
       const reportData = {
         wasteType: reportForm.wasteType,
         volumeEstimate: result.volume || "Unknown",
-        location: getReportLocation(),
-        coordinates: coords, // added gps coordinates here
-        contactInfo: `Email: ${userEmail} | Phone: ${userPhone}`,
+        location: finalAddress || getReportLocation(),
+        coordinates: finalCoordinates || null,
+        contactInfo: contactValue,
+        reporterName: reporterName.value.trim() || "Anonymous", // Defaults to Anonymous if empty
         notes: reporter.notes,
         severityScore: result.severity_score != null ? result.severity_score : 3
       };
-
       const reportId = await submitTrashReport(reportData, selectedFile);
 
       console.log("Basura-Pin report submitted:", {
@@ -580,4 +677,93 @@ if (submitBtn) {
       updateStepper();
     }
   });
+
+  // ---------------------------------------------------------------------------
+// Nominatim Autocomplete Logic for Location Search
+// ---------------------------------------------------------------------------
+const mapSearchInput = document.getElementById('map-search-input');
+const searchSuggestions = document.getElementById('search-suggestions');
+const clearSearchBtn = document.getElementById('clear-search-btn');
+
+let searchTimeout;
+
+mapSearchInput?.addEventListener('input', (e) => {
+    const query = e.target.value;
+    
+    // Toggle the clear 'X' button
+    if (query.length > 0) {
+        clearSearchBtn.classList.remove('hidden');
+    } else {
+        clearSearchBtn.classList.add('hidden');
+        searchSuggestions.classList.add('hidden');
+        return;
+    }
+
+    // Debounce the API call so it doesn't spam on every keystroke
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(async () => {
+        try {
+            // Fetch from Nominatim (restricted to PH for relevant results)
+            const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=ph&limit=5`);
+            const data = await res.json();
+            
+            searchSuggestions.innerHTML = '';
+            
+            if (data.length > 0) {
+                searchSuggestions.classList.remove('hidden');
+                data.forEach(place => {
+                    const li = document.createElement('li');
+                    li.className = 'cursor-pointer p-3 hover:bg-gray-50 flex items-start gap-3';
+                    
+                    // Format display to match image: Name on top, Address below
+                    const nameParts = place.display_name.split(',');
+                    const mainName = nameParts[0];
+                    const fullAddress = place.display_name.substring(mainName.length + 1).trim();
+                    
+                    li.innerHTML = `
+                        <span class="text-green-700 mt-0.5">
+                           <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+                        </span>
+                        <div>
+                            <div class="font-bold text-sm text-gray-900">${mainName}</div>
+                            <div class="text-xs text-gray-500 line-clamp-1">${fullAddress}</div>
+                        </div>
+                    `;
+                    
+                    // When a suggestion is clicked, lock it in
+                    li.addEventListener('click', () => {
+                        mapSearchInput.value = place.display_name;
+                        finalAddress = place.display_name;
+                        finalCoordinates = { lat: place.lat, lng: place.lon };
+                        searchSuggestions.classList.add('hidden');
+                        updateStepper();
+                    });
+                    
+                    searchSuggestions.appendChild(li);
+                });
+            } else {
+                searchSuggestions.classList.add('hidden');
+            }
+        } catch (err) {
+            console.error("Geocoding search error:", err);
+        }
+    }, 400); // 400ms delay
+});
+
+// Clear button logic
+clearSearchBtn?.addEventListener('click', () => {
+    mapSearchInput.value = '';
+    finalAddress = '';
+    finalCoordinates = null;
+    clearSearchBtn.classList.add('hidden');
+    searchSuggestions.classList.add('hidden');
+    mapSearchInput.focus();
+});
+
+// Hide dropdown if clicked outside
+document.addEventListener('click', (e) => {
+    if (!mapSearchInput.contains(e.target) && !searchSuggestions.contains(e.target)) {
+        searchSuggestions.classList.add('hidden');
+    }
+});
 }
