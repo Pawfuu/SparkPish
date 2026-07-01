@@ -40,6 +40,38 @@ import {
     return STATUS_TO_UI[key] || "Pending Verification";
   }
 
+  function showToast(featureName) {
+    let container = document.getElementById("toast-container");
+    if (!container) {
+      container = document.createElement("div");
+      container.id = "toast-container";
+      container.className = "fixed bottom-5 right-5 z-[9999] flex flex-col gap-3";
+      document.body.appendChild(container);
+    }
+
+    const toast = document.createElement("div");
+    toast.className = "flex items-center gap-3 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl text-sm font-medium transform transition-all duration-300 translate-y-10 opacity-0";
+    toast.innerHTML = `
+      <span class="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+      </span>
+      <div>
+        <p class="font-bold text-slate-100">${featureName}</p>
+        <p class="text-[10px] text-slate-400">This feature will be added in the next update.</p>
+      </div>
+    `;
+    container.appendChild(toast);
+
+    requestAnimationFrame(() => {
+      toast.classList.remove("translate-y-10", "opacity-0");
+    });
+
+    setTimeout(() => {
+      toast.classList.add("translate-y-10", "opacity-0");
+      setTimeout(() => toast.remove(), 300);
+    }, 3000);
+  }
+
   function mapDocToReport(docSnap) {
     const data = docSnap.data();
     
@@ -242,17 +274,28 @@ import {
   }
 
   function buildMarkerHtml(report) {
-    let pinColorClass = "text-blue-500"; // Default: In Progress
+    let pinColorClass = "text-amber-500"; 
     let pulseHtml = "";
     
-    // Logic matching your new Legend
+    // Evaluate Status First (Base Color)
     if (report.status === "Resolved") {
       pinColorClass = "text-slate-400";
-    } else if (report.severity >= 4) { // Critical / AI Flagged
-      pinColorClass = "text-rose-500";
-      pulseHtml = '<span class="absolute top-[10%] left-[20%] inline-flex h-[60%] w-[60%] rounded-full bg-rose-400 opacity-60 animate-ping"></span>';
-    } else if (report.status === "Pending Verification") {
-      pinColorClass = "text-amber-500";
+    } else if (report.status === "In Progress") {
+      pinColorClass = "text-blue-500";
+      // If severe AND in progress -> Blue Pin, Blue Pulse
+      if (report.severity >= 4) {
+        pulseHtml = '<span class="absolute top-[10%] left-[20%] inline-flex h-[60%] w-[60%] rounded-full bg-blue-400 opacity-60 animate-ping"></span>';
+      }
+    } else {
+      // Pending Verification
+      if (report.severity >= 4) {
+        // If severe AND pending -> Red Pin, Red Pulse
+        pinColorClass = "text-rose-500";
+        pulseHtml = '<span class="absolute top-[10%] left-[20%] inline-flex h-[60%] w-[60%] rounded-full bg-rose-400 opacity-60 animate-ping"></span>';
+      } else {
+        // If normal AND pending -> Amber Pin, no pulse
+        pinColorClass = "text-amber-500";
+      }
     }
 
     const svgIcon = `
@@ -306,121 +349,186 @@ import {
     });
   }
 
-  // --- UI & NAVIGATION LOGIC ---
-  function switchView(viewName) {
-    const navButtons = [navDashboardBtn, navReportsBtn, navMapBtn, navAnalyticsBtn, navSettingsBtn];
-    navButtons.forEach((btn) => {
-      if (btn) {
-        btn.classList.remove("bg-blue-50", "text-blue-700", "font-semibold");
-        btn.classList.add("text-slate-600", "hover:bg-slate-50", "hover:text-slate-900", "font-medium");
-      }
-    });
-
-    viewDashboardPanel.classList.add("hidden");
-    viewReportsPanel.classList.add("hidden");
-    viewMapPanel.classList.add("hidden");
-
-    if (viewName === "dashboard") {
-      viewDashboardPanel.classList.remove("hidden");
-      if (navDashboardBtn) navDashboardBtn.classList.add("bg-blue-50", "text-blue-700", "font-semibold");
-      if (viewTitle) viewTitle.textContent = "Dashboard";
-      updateDashboardMetrics(reports);
-      initLeafletMap();
-      renderMapMarkers();
-      refreshMapSizes(100);
-    } else if (viewName === "reports") {
-      viewReportsPanel.classList.remove("hidden");
-      if (navReportsBtn) navReportsBtn.classList.add("bg-blue-50", "text-blue-700", "font-semibold");
-      if (viewTitle) viewTitle.textContent = "Civic Reports Database";
-      renderReportsTable();
-    } else if (viewName === "map") {
-      viewMapPanel.classList.remove("hidden");
-      if (navMapBtn) navMapBtn.classList.add("bg-blue-50", "text-blue-700", "font-semibold");
-      if (viewTitle) viewTitle.textContent = "Live Reports Map";
-      initLeafletMap();
-      renderMapMarkers();
-      refreshMapSizes(100);
+ // --- UI & NAVIGATION LOGIC ---
+ function switchView(viewName) {
+  const navButtons = [navDashboardBtn, navReportsBtn, navMapBtn, navAnalyticsBtn, navSettingsBtn];
+  
+  // 1. Reset all buttons to inactive state
+  navButtons.forEach((btn) => {
+    if (btn) {
+      btn.classList.remove("bg-emerald-50", "text-emerald-700", "border-emerald-500", "font-bold");
+      btn.classList.add("text-slate-500", "border-transparent", "font-semibold");
     }
+  });
+
+  // 2. Hide all panels
+  viewDashboardPanel.classList.add("hidden");
+  viewReportsPanel.classList.add("hidden");
+  viewMapPanel.classList.add("hidden");
+
+  // 3. Activate selected view and apply correct emerald highlights
+  if (viewName === "dashboard") {
+    viewDashboardPanel.classList.remove("hidden");
+    if (navDashboardBtn) navDashboardBtn.classList.add("bg-emerald-50", "text-emerald-700", "border-emerald-500", "font-bold");
+    if (viewTitle) viewTitle.textContent = "Dashboard";
+    updateDashboardMetrics(reports);
+    initLeafletMap();
+    renderMapMarkers();
+    refreshMapSizes(100);
+  } else if (viewName === "reports") {
+    viewReportsPanel.classList.remove("hidden");
+    if (navReportsBtn) navReportsBtn.classList.add("bg-emerald-50", "text-emerald-700", "border-emerald-500", "font-bold");
+    if (viewTitle) viewTitle.textContent = "Civic Reports Database";
+    renderReportsTable();
+  } else if (viewName === "map") {
+    viewMapPanel.classList.remove("hidden");
+    if (navMapBtn) navMapBtn.classList.add("bg-emerald-50", "text-emerald-700", "border-emerald-500", "font-bold");
+    if (viewTitle) viewTitle.textContent = "Live Reports Map";
+    initLeafletMap();
+    renderMapMarkers();
+    refreshMapSizes(100);
   }
+}
 
-  function renderReportsTable() {
-    if (!reportsTableBody) return;
-    const queryText = reportSearchInput ? reportSearchInput.value.toLowerCase().trim() : "";
-    let sortedList = [...reports];
+ // Track active sub-filter tab selection state
+ let currentStatusFilter = "all";
 
-    if (queryText) {
-      sortedList = sortedList.filter((item) =>
-          item.id.toLowerCase().includes(queryText) ||
-          item.category.toLowerCase().includes(queryText) ||
-          item.location.toLowerCase().includes(queryText) ||
-          item.submittedBy.toLowerCase().includes(queryText) ||
-          item.status.toLowerCase().includes(queryText)
-      );
-    }
+ function renderReportsTable() {
+   if (!reportsTableBody) return;
+   const queryText = reportSearchInput ? reportSearchInput.value.toLowerCase().trim() : "";
+   
+   // Update live sub-tab totals indicator elements
+   const counts = {
+     all: reports.length,
+     pending: reports.filter(r => r.status === "Pending Verification").length,
+     progress: reports.filter(r => r.status === "In Progress").length,
+     resolved: reports.filter(r => r.status === "Resolved").length
+   };
+   
+   if (document.getElementById("tab-count-all")) document.getElementById("tab-count-all").textContent = `(${counts.all})`;
+   if (document.getElementById("tab-count-pending")) document.getElementById("tab-count-pending").textContent = `(${counts.pending})`;
+   if (document.getElementById("tab-count-progress")) document.getElementById("tab-count-progress").textContent = `(${counts.progress})`;
+   if (document.getElementById("tab-count-resolved")) document.getElementById("tab-count-resolved").textContent = `(${counts.resolved})`;
 
-    const sortVal = sortSelect ? sortSelect.value : "id-desc";
-    sortedList.sort((a, b) => {
-      if (sortVal === "id-asc") return a.docId.localeCompare(b.docId);
-      if (sortVal === "id-desc") return b.docId.localeCompare(a.docId);
-      if (sortVal === "status-asc") return a.status.localeCompare(b.status);
-      if (sortVal === "status-desc") return b.status.localeCompare(a.status);
-      return 0;
-    });
+   // Filter list based on selected sub-tab
+   let filteredList = [...reports];
+   if (currentStatusFilter === "pending") {
+     filteredList = filteredList.filter(r => r.status === "Pending Verification");
+   } else if (currentStatusFilter === "progress") {
+     filteredList = filteredList.filter(r => r.status === "In Progress");
+   } else if (currentStatusFilter === "resolved") {
+     filteredList = filteredList.filter(r => r.status === "Resolved");
+   }
 
-    reportsTableBody.innerHTML = "";
+   // Apply secondary text query filter
+   if (queryText) {
+     filteredList = filteredList.filter((item) =>
+         item.id.toLowerCase().includes(queryText) ||
+         item.category.toLowerCase().includes(queryText) ||
+         item.location.toLowerCase().includes(queryText) ||
+         item.submittedBy.toLowerCase().includes(queryText) ||
+         item.status.toLowerCase().includes(queryText)
+     );
+   }
 
-    if (sortedList.length === 0) {
-      reportsTableBody.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-slate-500 font-medium bg-slate-50/50">No matching reports found.</td></tr>`;
-      if (tableResultsCounter) tableResultsCounter.textContent = "Showing 0 reports";
-      return;
-    }
+   // Sort processing
+   const sortVal = sortSelect ? sortSelect.value : "id-desc";
+   filteredList.sort((a, b) => {
+     if (sortVal === "id-asc") return a.docId.localeCompare(b.docId);
+     if (sortVal === "id-desc") return b.docId.localeCompare(a.docId);
+     return 0;
+   });
 
-    if (tableResultsCounter) tableResultsCounter.textContent = `Showing ${sortedList.length} of ${reports.length} reports`;
+   reportsTableBody.innerHTML = "";
 
-    sortedList.forEach((report) => {
-      const tr = document.createElement("tr");
-      tr.className = "hover:bg-slate-50/80 transition-colors border-b border-slate-100 align-middle";
+   if (filteredList.length === 0) {
+     reportsTableBody.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-slate-500 font-medium bg-slate-50/50">No matching reports found.</td></tr>`;
+     if (tableResultsCounter) tableResultsCounter.textContent = "Showing 0 reports";
+     return;
+   }
 
-      let badgeColorClass = "bg-slate-400 text-slate-700";
-      let dotColorClass = "bg-slate-400";
-      if (report.status === "Resolved") {
-        badgeColorClass = "bg-green-50 text-green-700 border border-green-200";
-        dotColorClass = "bg-green-500";
-      } else if (report.status === "In Progress") {
-        badgeColorClass = "bg-amber-50 text-amber-700 border border-amber-200";
-        dotColorClass = "bg-amber-500";
-      } else if (report.status === "Pending Verification") {
-        badgeColorClass = "bg-slate-100 text-slate-700 border border-slate-200";
-        dotColorClass = "bg-slate-500";
-      }
+   if (tableResultsCounter) tableResultsCounter.textContent = `Showing ${filteredList.length} of ${reports.length} reports`;
 
-      tr.innerHTML = `
-        <td class="px-6 py-4 font-mono font-semibold text-slate-900">${report.id}</td>
-        <td class="px-6 py-4 font-semibold text-slate-800">${report.category}</td>
-        <td class="px-6 py-4 text-slate-600 max-w-xs truncate">${report.location}</td>
-        <td class="px-6 py-4 text-slate-700">${report.submittedBy}</td>
-        <td class="px-6 py-4">
-          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${badgeColorClass}">
-            <span class="w-1.5 h-1.5 rounded-full ${dotColorClass}"></span>
-            ${report.status}
-          </span>
-        </td>
-        <td class="px-6 py-4 text-right">
-          <button data-doc-id="${report.docId}" class="action-view-btn text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors px-3 py-1.5 rounded bg-blue-50 hover:bg-blue-100 inline-flex items-center gap-1">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-            <span>View</span>
-          </button>
-        </td>
-      `;
-      reportsTableBody.appendChild(tr);
-    });
+   filteredList.forEach((report) => {
+     const tr = document.createElement("tr");
+     tr.className = "hover:bg-slate-50/80 transition-colors border-b border-slate-100 align-middle";
 
-    reportsTableBody.querySelectorAll(".action-view-btn").forEach((btn) => {
-      btn.addEventListener("click", function () {
-        openDetailModal(this.getAttribute("data-doc-id"));
-      });
-    });
-  }
+     // 1. Calculate Status Badge Styles
+     let badgeColorClass = "bg-slate-100 text-slate-700 border border-slate-200";
+     if (report.status === "Resolved") {
+       badgeColorClass = "bg-green-50 text-green-700 border border-green-200";
+     } else if (report.status === "In Progress") {
+       badgeColorClass = "bg-blue-50 text-blue-700 border border-blue-200";
+     } else if (report.status === "Pending Verification") {
+       badgeColorClass = "bg-amber-50 text-amber-700 border border-amber-200";
+     }
+
+     // 2. Calculate Priority Badge Styles (Map severity directly to layout priority)
+     let priorityText = "Low";
+     let priorityClass = "bg-slate-100 text-slate-600 font-semibold text-xs px-2.5 py-0.5 rounded";
+     
+     if (report.severity >= 4) {
+       priorityText = "High";
+       priorityClass = "bg-rose-50 text-rose-700 font-bold text-xs px-2.5 py-0.5 rounded border border-rose-100";
+     } else if (report.severity === 3) {
+       priorityText = "Medium";
+       priorityClass = "bg-amber-50 text-amber-700 font-semibold text-xs px-2.5 py-0.5 rounded border border-amber-100";
+     }
+
+     tr.innerHTML = `
+       <td class="px-6 py-4 font-mono font-semibold text-slate-900">#${report.id}</td>
+       <td class="px-6 py-4 font-semibold text-slate-800 capitalize">${report.category}</td>
+       <td class="px-6 py-4 text-slate-600 max-w-xs truncate">${report.location}</td>
+       <td class="px-6 py-4">
+         <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${badgeColorClass}">
+           ${report.status}
+         </span>
+       </td>
+       <td class="px-6 py-4">
+         <span class="${priorityClass}">
+           ${priorityText}
+         </span>
+       </td>
+       <td class="px-6 py-4 text-right">
+         <button data-doc-id="${report.docId}" class="action-view-btn text-xs font-bold text-emerald-600 hover:text-emerald-800 transition-colors px-3 py-1.5 rounded bg-emerald-50 hover:bg-emerald-100 inline-flex items-center gap-1">
+           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+           <span>View</span>
+         </button>
+       </td>
+     `;
+     reportsTableBody.appendChild(tr);
+   });
+
+   reportsTableBody.querySelectorAll(".action-view-btn").forEach((btn) => {
+     btn.addEventListener("click", function () {
+       openDetailModal(this.getAttribute("data-doc-id"));
+     });
+   });
+ }
+
+ // Bind events for filter sub-tabs execution
+ function setupTabFilters() {
+   const tabs = {
+     all: document.getElementById("filter-tab-all"),
+     pending: document.getElementById("filter-tab-pending"),
+     progress: document.getElementById("filter-tab-progress"),
+     resolved: document.getElementById("filter-tab-resolved")
+   };
+
+   Object.keys(tabs).forEach(key => {
+     if (!tabs[key]) return;
+     tabs[key].addEventListener("click", function() {
+       // Reset styles
+       Object.values(tabs).forEach(t => {
+         if(t) t.className = "px-4 py-2.5 border-b-2 border-transparent hover:text-slate-800 transition-all";
+       });
+       // Highlight active tab
+       this.className = "px-4 py-2.5 border-b-2 border-emerald-600 text-emerald-600 font-bold transition-all";
+       currentStatusFilter = key;
+       renderReportsTable();
+     });
+   });
+ }
 
   // --- MODAL LOGIC ---
   function populateModal(report) {
@@ -549,13 +657,13 @@ import {
       if (nav) {
         nav.addEventListener("click", function () {
           const featureName = this.querySelector("span")
-            ? this.querySelector("span").textContent
+            ? this.querySelector("span").textContent.trim()
             : "This feature";
-          console.log("Coming soon:", featureName);
+          showToast(featureName);
         });
       }
     });
-
+  
     setupSidebarToggle();
 
     // Modal & Table Setup
@@ -572,6 +680,9 @@ import {
     const backdrop = document.getElementById("modal-backdrop");
     if (backdrop) backdrop.addEventListener("click", closeModal);
     document.addEventListener("keydown", (e) => { if (e.key === "Escape" || e.key === "Esc") closeModal(); });
+  
+  // Initialize Sub-Tab Filters
+  setupTabFilters();
   }
 
   // Final Execution Hook
