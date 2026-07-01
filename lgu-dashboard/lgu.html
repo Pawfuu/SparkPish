@@ -1,222 +1,916 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="LGU Administrator Portal - Basura-Pin Management Dashboard">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="LGU Administrator Portal - Basura-Pin Management Dashboard" />
   <title>LGU Admin Portal - Basura-Pin</title>
 
   <!-- Tailwind Stylesheet -->
-<script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
 
   <!-- Google Font: Inter -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
   <style>
     body {
-      font-family: 'Inter', sans-serif;
+      font-family: "Inter", sans-serif;
+    }
+
+    /* Sidebar Collapsible Behavior (Priority: Desktop/Computers) */
+    @media (min-width: 768px) {
+      #main-sidebar {
+        width: 5rem;
+        /* w-20 collapsed */
+        transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      #main-sidebar:hover {
+        width: 16rem;
+        /* w-64 expanded */
+      }
+
+      #main-content-wrapper {
+        padding-left: 5rem;
+        /* pl-20 align with collapsed sidebar */
+        transition: padding-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      #main-sidebar:hover+#main-content-wrapper {
+        padding-left: 16rem;
+      }
+
+      /* Centering navigation button icons when collapsed */
+      #main-sidebar:not(:hover) nav button {
+        padding-left: 1.625rem;
+      }
+
+      #main-sidebar:not(:hover) nav button svg {
+        margin: 0;
+      }
+
+      /* Adjusting profile and logout at the bottom when collapsed */
+      #main-sidebar:not(:hover) .p-4 {
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+      }
+
+      #main-sidebar:not(:hover) .profile-container {
+        justify-content: center;
+        padding-left: 0;
+        padding-right: 0;
+      }
+
+      #main-sidebar:not(:hover) .logout-btn {
+        padding-left: 1.625rem;
+        /* center the 20px logout icon */
+      }
+
+      /* Scale branding logo container and image */
+      .sidebar-logo-container {
+        width: 3rem;
+        /* w-12 */
+        height: 3rem;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .sidebar-logo-img {
+        width: 4rem;
+        /* w-16 */
+        height: 4rem;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      #main-sidebar:hover .sidebar-logo-container {
+        width: 5rem;
+        /* w-20 */
+        height: 5rem;
+      }
+
+      #main-sidebar:hover .sidebar-logo-img {
+        width: 8rem;
+        /* w-32 */
+        height: 8rem;
+      }
+
+      /* Adjust branding container padding */
+      .branding-container {
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+        transition: padding 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      #main-sidebar:hover .branding-container {
+        padding-left: 1.25rem;
+        padding-right: 1.25rem;
+      }
+
+      /* Hide/Show text components with a smooth fade & width collapse */
+      .sidebar-text {
+        opacity: 0;
+        max-width: 0;
+        overflow: hidden;
+        white-space: nowrap;
+        transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1), max-width 0.2s cubic-bezier(0.4, 0, 0.2, 1), margin 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        pointer-events: none;
+      }
+
+      #main-sidebar:hover .sidebar-text {
+        opacity: 1;
+        max-width: 12rem;
+        pointer-events: auto;
+        margin-left: 0.25rem;
+      }
+
+      /* ========================================================
+         FLUID INTERACTION & OPTION SELECTION ANIMATIONS (PRO UI/UX)
+         ======================================================== */
+      #main-sidebar nav button {
+        position: relative;
+        overflow: hidden;
+        border-left-width: 0 !important;
+        /* Hide static border, replaced by custom elastic bar */
+        transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+          background-color 0.25s ease,
+          color 0.25s ease,
+          padding 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      /* Gentle push translation when hovering inactive option */
+      #main-sidebar nav button:hover:not(.bg-emerald-50) {
+        transform: translateX(4px);
+        background-color: rgb(248 250 252 / 0.8);
+        /* bg-slate-50/80 */
+      }
+
+      /* Spring/Bounce active option state */
+      #main-sidebar nav button.bg-emerald-50 {
+        transform: translateX(4px);
+        box-shadow: 0 4px 12px -2px rgba(16, 185, 129, 0.12), 0 2px 4px -1px rgba(16, 185, 129, 0.08);
+        animation: tabActivate 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+      }
+
+      @keyframes tabActivate {
+        0% {
+          transform: scale(0.95) translateX(0);
+        }
+
+        50% {
+          transform: scale(1.02) translateX(6px);
+        }
+
+        100% {
+          transform: scale(1) translateX(4px);
+        }
+      }
+
+      /* Custom elastic/spring left indicator bar */
+      #main-sidebar nav button::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 20%;
+        height: 60%;
+        width: 4px;
+        border-radius: 0 4px 4px 0;
+        background-color: rgb(16 185 129);
+        /* emerald-500 */
+        transform: scaleY(0);
+        transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        transform-origin: center;
+      }
+
+      #main-sidebar nav button.bg-emerald-50::before {
+        transform: scaleY(1);
+      }
+
+      /* Micro-animations for SVGs inside buttons */
+      #main-sidebar nav button svg {
+        transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.3s ease;
+      }
+
+      #main-sidebar nav button:hover svg {
+        transform: scale(1.1) rotate(2deg);
+      }
+
+      #main-sidebar nav button.bg-emerald-50 svg {
+        transform: scale(1.15);
+        color: rgb(4 120 87) !important;
+        /* emerald-700 */
+      }
+    }
+
+    /* Mobile behavior (< 768px): Keep it collapsed (icons only) for clean mobile space */
+    @media (max-width: 767px) {
+      #main-sidebar {
+        width: 4rem;
+        /* w-16 */
+      }
+
+      #main-content-wrapper {
+        padding-left: 4rem;
+        /* pl-16 */
+      }
+
+      .sidebar-text {
+        display: none !important;
+      }
+
+      .branding-container {
+        padding: 0.75rem 0.25rem;
+        justify-content: center;
+      }
+
+      .sidebar-logo-container {
+        width: 2.5rem;
+        height: 2.5rem;
+      }
+
+      .sidebar-logo-img {
+        width: 3.5rem;
+        height: 3.5rem;
+      }
+
+      #main-sidebar nav button {
+        padding-left: 1.125rem;
+      }
+
+      #main-sidebar .p-4 {
+        padding: 0.75rem 0.25rem;
+      }
+
+      #main-sidebar .profile-container {
+        justify-content: center;
+        padding: 0;
+      }
+
+      #main-sidebar .logout-btn {
+        padding-left: 0.875rem;
+      }
+    }
+
+    /* Move Leaflet zoom controls below our Active Alerts floating card */
+    .leaflet-top.leaflet-left {
+      top: 140px !important;
+      left: 10px !important;
+    }
+
+    /* Premium Table Row Animation */
+    @keyframes fadeSlideUp {
+      from {
+        opacity: 0;
+        transform: translateY(12px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .animate-table-row {
+      opacity: 0;
+      /* Hidden by default until animation triggers */
+      animation: fadeSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     }
   </style>
   <!-- Leaflet Map CSS and JS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link class="leaflet-css" rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
 </head>
+
 <body class="bg-[#f8fafc] text-slate-800 antialiased min-h-screen flex">
   <!-- Tailwind safelist for Leaflet marker classes injected via JS -->
   <div class="hidden" aria-hidden="true">
-    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-    <span class="relative flex h-4 w-4 rounded-full bg-red-600 bg-slate-400 bg-amber-500 bg-blue-500 border-2 border-white shadow-md"></span>
+    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+    <span
+      class="relative flex h-4 w-4 rounded-full bg-rose-500 bg-slate-400 bg-amber-500 bg-blue-500 text-rose-500 text-amber-500 text-blue-500 text-slate-400"></span>
   </div>
 
   <!-- ==========================================
-       FIXED LEFT NAVIGATION SIDEBAR
+       FIXED LEFT NAVIGATION SIDEBAR (Collapsible)
        ========================================== -->
-  <aside class="w-64 border-r border-slate-200 bg-white flex flex-col fixed inset-y-0 left-0 z-20">
-    <!-- Brand / Title -->
-    <div class="h-16 px-6 border-b border-slate-100 flex items-center gap-3">
-      <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-lg">
-        B
+  <aside id="main-sidebar"
+    class="fixed left-0 top-0 z-40 h-screen bg-white border-r border-gray-100 transition-all duration-300 flex flex-col shadow-sm">
+    <!-- Dedicated branding container at the very top -->
+    <div class="branding-container py-4 border-b border-gray-100 flex items-center gap-3 bg-white flex-shrink-0">
+      <div class="sidebar-logo-container rounded-xl bg-green-0 flex items-center justify-center text-xl shrink-0">
+        <img src="/user-app/assets/ogLogo.svg" alt="E-Tapon Mo Logo" class="sidebar-logo-img object-contain" />
       </div>
-      <div>
-        <h1 class="text-sm font-bold text-slate-900 tracking-tight leading-none">Basura-Pin</h1>
-        <span class="text-[10px] text-slate-500 font-medium tracking-wide uppercase">LGU Admin Portal</span>
+      <div class="flex flex-col min-w-0 sidebar-text">
+        <h1 class="text-sm font-black text-slate-800 tracking-tight leading-tight truncate">
+          E-Tapon Mo
+        </h1>
+        <span class="text-[11px] font-semibold text-slate-400 tracking-wide uppercase mt-0.5">LGU Admin Portal</span>
       </div>
     </div>
 
-    <!-- Navigation Items -->
-    <nav class="flex-1 px-4 py-6 space-y-1">
-      <button 
-        id="nav-dashboard" 
-        class="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold rounded-lg transition-colors bg-blue-50 text-blue-700"
-      >
-        <!-- Dashboard Icon -->
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2v-4zM14 16a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2v-4z" />
+    <!-- Navigation Items (Pill-style layout) -->
+    <nav class="flex-1 px-3 py-6 space-y-2 overflow-y-auto overflow-x-hidden">
+      <!-- Dashboard -->
+      <button id="nav-dashboard"
+        class="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold border-l-4 border-emerald-600 bg-emerald-50 text-emerald-700 rounded-r-xl transition-all duration-300">
+        <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round"
+            d="M4 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2v-4zM14 16a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2v-4z" />
         </svg>
-        <span>Dashboard</span>
+        <span class="sidebar-text truncate">Dashboard</span>
       </button>
 
-      <button 
-        id="nav-reports" 
-        class="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium rounded-lg text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors"
-      >
-        <!-- Reports Icon -->
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      <!-- Reports -->
+      <button id="nav-reports"
+        class="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold border-l-4 border-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-900 rounded-r-xl transition-all duration-300">
+        <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round"
+            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
         </svg>
-        <span>Reports</span>
+        <span class="sidebar-text truncate">Reports</span>
       </button>
 
-      <button 
-        id="nav-map" 
-        class="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium rounded-lg text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors"
-      >
-        <!-- Map Icon -->
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+      <!-- Map -->
+      <button id="nav-map"
+        class="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold border-l-4 border-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-900 rounded-r-xl transition-all duration-300">
+        <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round"
+            d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
           <path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
         </svg>
-        <span>Map</span>
+        <span class="sidebar-text truncate">Map</span>
       </button>
 
-      <button 
-        id="nav-analytics" 
-        class="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium rounded-lg text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors"
-      >
-        <!-- Analytics Icon -->
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+      <!-- Analytics -->
+      <button id="nav-analytics"
+        class="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold border-l-4 border-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-900 rounded-r-xl transition-all duration-300">
+        <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M11 3.055A9.003 9.003 0 1020.945 13H11V3.055z" />
+          <path stroke-linecap="round" stroke-linejoin="round" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
         </svg>
-        <span>Analytics</span>
+        <span class="sidebar-text truncate">Analytics</span>
       </button>
 
-      <button 
-        id="nav-settings" 
-        class="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium rounded-lg text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors"
-      >
-        <!-- Settings Icon -->
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+      <!-- Barangay Performance -->
+      <button id="nav-barangay"
+        class="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold border-l-4 border-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-900 rounded-r-xl transition-all duration-300">
+        <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round"
+            d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+        </svg>
+        <span class="sidebar-text truncate">Barangay Performance</span>
+      </button>
+
+      <!-- Task Management -->
+      <button id="nav-tasks"
+        class="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold border-l-4 border-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-900 rounded-r-xl transition-all duration-300">
+        <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round"
+            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+        </svg>
+        <span class="sidebar-text truncate">Task Management</span>
+      </button>
+
+      <!-- Collection Routes -->
+      <button id="nav-routes"
+        class="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold border-l-4 border-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-900 rounded-r-xl transition-all duration-300">
+        <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+        </svg>
+        <span class="sidebar-text truncate">Collection Routes</span>
+      </button>
+
+      <!-- AI Insights -->
+      <button id="nav-insights"
+        class="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold border-l-4 border-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-900 rounded-r-xl transition-all duration-300">
+        <svg class="w-5 h-5 flex-shrink-0 text-emerald-500" fill="none" stroke="currentColor" stroke-width="2"
+          viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+        <span class="sidebar-text truncate">AI Insights</span>
+      </button>
+
+      <!-- Settings -->
+      <button id="nav-settings"
+        class="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold border-l-4 border-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-900 rounded-r-xl transition-all duration-300">
+        <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round"
+            d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
           <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
         </svg>
-        <span>Settings</span>
+        <span class="sidebar-text truncate">Settings</span>
       </button>
     </nav>
 
-    <!-- Footer Profile -->
-    <div class="p-4 border-t border-slate-100 flex items-center gap-3">
-      <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=256&auto=format&fit=crop" alt="LGU Admin Profile" class="w-9 h-9 rounded-full object-cover">
-      <div class="min-w-0 flex-1">
-        <p class="text-xs font-semibold text-slate-800 truncate">Hon. Maria Santos</p>
-        <p class="text-[10px] text-slate-500 font-medium truncate">Chief LGU Admin</p>
+    <!-- Footer Profile & Logout -->
+    <div class="p-4 border-t border-slate-100 flex flex-col gap-3.5">
+      <div class="profile-container flex items-center gap-3 px-3 transition-all duration-300">
+        <img src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=256&auto=format&fit=crop"
+          alt="Admin Profile"
+          class="w-10 h-10 rounded-full object-cover flex-shrink-0 border-2 border-emerald-500/20 shadow-sm" />
+        <div class="sidebar-text min-w-0 flex-1 transition-opacity duration-300">
+          <p class="text-xs font-bold text-slate-800 truncate leading-tight">
+            Maria Santos
+          </p>
+          <p class="text-[10px] text-slate-400 font-semibold truncate mt-0.5">
+            Chief Env. Officer
+          </p>
+        </div>
       </div>
+      <button id="logout-btn"
+        class="logout-btn w-full flex items-center gap-3 px-3.5 py-3 text-xs font-bold rounded-xl text-rose-500 hover:bg-rose-50 hover:text-rose-700 transition-all duration-300 mt-1"
+        title="Log out">
+        <svg class="w-5 h-5 flex-shrink-0 text-rose-500" fill="none" stroke="currentColor" stroke-width="2"
+          viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round"
+            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+        </svg>
+        <span class="sidebar-text truncate">Log out</span>
+      </button>
     </div>
   </aside>
 
   <!-- ==========================================
        MAIN CONTENT CONTAINER
        ========================================== -->
-  <div class="pl-64 flex-1 flex flex-col min-h-screen">
-    
+  <div id="main-content-wrapper" class="flex-1 flex flex-col min-h-screen transition-all duration-300">
     <!-- Top Header -->
-    <header class="h-16 bg-white border-b border-slate-200 px-8 flex items-center justify-between sticky top-0 z-10">
+    <header id="main-header"
+      class="h-16 bg-white border-b border-slate-200 px-8 flex items-center justify-between sticky top-0 z-30">
       <div>
         <h2 id="view-title" class="text-lg font-bold text-slate-900">Dashboard</h2>
       </div>
+
+      <!-- Right Side Controls -->
       <div class="flex items-center gap-4">
-        <!-- Date display -->
-        <span class="text-xs text-slate-500 font-medium" id="header-date">Monday, June 29, 2026</span>
+        <!-- Date Display -->
+        <div class="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-lg">
+          <span class="text-xs font-semibold text-slate-700" id="header-date">Monday, June 29, 2026</span>
+          <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+        </div>
+
+        <!-- Notification Bell -->
+        <button class="relative p-1.5 rounded-lg hover:bg-slate-100 transition-colors text-slate-500">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+          </svg>
+          <span class="absolute top-0 right-0 w-2 h-2 bg-rose-500 rounded-full border border-white"></span>
+        </button>
+
+        <!-- Location Filter (QC Priority / Coming Soon) -->
         <div class="h-8 w-px bg-slate-200"></div>
-        <span class="text-xs font-semibold text-slate-700 tracking-wide">LGU ADMIN PORTAL</span>
+        <button onclick="alert('We\'re adding more barangays soon!')"
+          class="flex items-center gap-2 text-xs font-semibold text-slate-700 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors cursor-pointer">
+          Quezon City (All)
+          <span
+            class="text-[9px] font-black uppercase text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded">Beta</span>
+          <svg class="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
       </div>
     </header>
 
     <!-- Main Views Area -->
     <main class="flex-1 p-8">
-
       <!-- ========================================================
            VIEW 1: DASHBOARD OVERVIEW PANEL
            ======================================================== -->
       <section id="view-dashboard-panel" class="space-y-6">
         <h3 class="text-xl font-bold text-slate-900">Recent Civic Reports</h3>
 
-        <!-- Status Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm transition hover:shadow-md">
-            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Active Reports</p>
-            <p id="stat-active" class="text-4xl font-extrabold text-slate-900 mt-2">--</p>
+        <!-- New Bento Grid KPI Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-4 mb-6">
+          <!-- Card 1: Active Reports (Blue) -->
+          <div
+            class="md:col-span-3 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow relative overflow-hidden">
+            <div class="flex items-center justify-between mb-4 relative z-10">
+              <p class="text-xs font-bold text-blue-600 uppercase tracking-wider flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+                Active Reports
+              </p>
+              <!-- Lightning Icon -->
+              <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            <p id="stat-active" class="text-4xl font-black text-slate-900 tracking-tight relative z-10">
+              --
+            </p>
+            <div class="mt-3 relative z-10">
+              <span
+                class="text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-100 px-2 py-1 rounded-md">Live
+                Sync Active</span>
+            </div>
+            <!-- Decorative Element -->
+            <div class="absolute -right-6 -top-6 w-24 h-24 bg-blue-50/70 rounded-full blur-xl pointer-events-none">
+            </div>
           </div>
-          <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm transition hover:shadow-md">
-            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Pending Verification</p>
-            <p id="stat-pending" class="text-4xl font-extrabold text-slate-900 mt-2">--</p>
+
+          <!-- Card 2: Critical Priority (Red) -->
+          <div
+            class="md:col-span-3 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow relative overflow-hidden">
+            <div class="flex items-center justify-between mb-4 relative z-10">
+              <p class="text-xs font-bold text-rose-600 uppercase tracking-wider flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+                Critical Priority
+              </p>
+              <!-- Alert Icon -->
+              <svg class="w-5 h-5 text-rose-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 13.33 1.924 3 3.464 3z" />
+              </svg>
+            </div>
+            <!-- Note: ID kept as stat-progress so the number loads from JS -->
+            <p id="stat-progress" class="text-4xl font-black text-slate-900 tracking-tight relative z-10">
+              --
+            </p>
+            <div class="mt-3 relative z-10">
+              <span
+                class="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-100 px-2 py-1 rounded-md">Action
+                Required</span>
+            </div>
+            <!-- Decorative Element -->
+            <div class="absolute -right-6 -top-6 w-24 h-24 bg-rose-50/70 rounded-full blur-xl pointer-events-none">
+            </div>
           </div>
-          <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm transition hover:shadow-md">
-            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">In Progress</p>
-            <p id="stat-progress" class="text-4xl font-extrabold text-slate-900 mt-2">--</p>
+
+          <!-- Card 3: Pending / Queue (Amber) -->
+          <div
+            class="md:col-span-3 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow relative overflow-hidden">
+            <div class="flex items-center justify-between mb-4 relative z-10">
+              <p class="text-xs font-bold text-amber-600 uppercase tracking-wider flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                Pending / Queue
+              </p>
+              <!-- Clock Icon -->
+              <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" stroke-width="2"
+                viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <p id="stat-pending" class="text-4xl font-black text-slate-900 tracking-tight relative z-10">
+              --
+            </p>
+            <div class="mt-3 relative z-10">
+              <span
+                class="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-100 px-2 py-1 rounded-md">Awaiting
+                Review</span>
+            </div>
+            <!-- Decorative Element -->
+            <div class="absolute -right-6 -top-6 w-24 h-24 bg-amber-50/70 rounded-full blur-xl pointer-events-none">
+            </div>
           </div>
-          <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm transition hover:shadow-md">
-            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Resolved</p>
-            <p id="stat-resolved" class="text-4xl font-extrabold text-slate-900 mt-2">--</p>
+
+          <!-- Card 4: Resolved (Green) -->
+          <div
+            class="md:col-span-3 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow relative overflow-hidden">
+            <div class="flex items-center justify-between mb-4 relative z-10">
+              <p class="text-xs font-bold text-emerald-600 uppercase tracking-wider flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                Resolved
+              </p>
+              <!-- Check Circle Icon -->
+              <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2"
+                viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div class="flex items-baseline gap-3 relative z-10">
+              <p id="stat-resolved" class="text-4xl font-black text-slate-900 tracking-tight">
+                --
+              </p>
+            </div>
+            <div class="mt-3 relative z-10">
+              <span
+                class="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-1 rounded-md">Verified
+                Cleared</span>
+            </div>
+            <!-- Decorative Element -->
+            <div class="absolute -right-6 -top-6 w-24 h-24 bg-emerald-50/70 rounded-full blur-xl pointer-events-none">
+            </div>
           </div>
         </div>
 
-        <!-- Map Widget Card -->
-        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div class="px-6 py-4 border-b border-slate-100">
-            <h4 class="text-sm font-bold text-slate-900">Map Overview</h4>
+        <!-- Live Spatial Alert Map Component (Interactive) -->
+        <div
+          class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm mb-6 flex flex-col group transition-colors hover:border-emerald-400">
+          <!-- Header & Controls -->
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+            <div>
+              <h2 class="text-lg font-black text-slate-800 tracking-tight flex items-center gap-2">
+                <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2"
+                  viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Live Spatial Alerts Map Overlay
+              </h2>
+              <p class="text-xs text-slate-500 font-medium mt-0.5">
+                Blinking pins highlight high-priority waste accumulations.
+              </p>
+            </div>
+
+            <!-- Launch Full GIS Button (Routes to Map Nav) -->
+            <button onclick="document.getElementById('nav-map').click()"
+              class="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold rounded-lg shadow-sm transition-colors flex items-center gap-2 cursor-pointer">
+              Launch Full GIS
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+              </svg>
+            </button>
           </div>
-          <div class="p-6">
-            <!-- Simulated Map Container using our generated asset -->
-            <div class="relative w-full h-[400px] rounded-xl overflow-hidden bg-slate-100 border border-slate-200">
-              <div id="lgu-dashboard-map" class="absolute inset-0 w-full h-full z-0"></div>
-              <div class="absolute bottom-4 left-4 bg-white/95 backdrop-blur px-3 py-2 rounded-lg shadow-sm border border-slate-200 text-xs font-medium text-slate-700 z-10 pointer-events-none">
-                🔵 Clustered report locations
+
+          <!-- Map Viewport -->
+          <div class="relative w-full h-[450px] bg-slate-100 rounded-xl border border-slate-200 overflow-hidden group">
+            <div id="lgu-dashboard-map" class="w-full h-full z-0"></div>
+
+            <div class="absolute top-4 left-4 z-[400] pointer-events-none">
+              <span
+                class="flex items-center gap-1.5 bg-slate-800/90 backdrop-blur-sm text-white px-3 py-1.5 rounded-md text-[10px] font-bold tracking-widest uppercase shadow-sm">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                Live
+              </span>
+            </div>
+
+            <div
+              class="absolute bottom-6 right-6 z-[400] bg-white/95 backdrop-blur border border-slate-200 p-3.5 rounded-xl shadow-xl transition-opacity hover:opacity-100">
+              <h4 class="text-[9px] font-black uppercase text-slate-400 mb-2.5 tracking-wider">
+                Pin Legend
+              </h4>
+              <div class="flex flex-col gap-2.5">
+                <div class="flex items-center gap-3">
+                  <div class="relative w-3 h-3">
+                    <span class="absolute inset-0 rounded-full bg-rose-500"></span>
+                    <span class="absolute inset-0 rounded-full bg-rose-400 animate-ping opacity-75"></span>
+                  </div>
+                  <span class="text-xs font-bold text-slate-700">Critical (AI Flagged)</span>
+                </div>
+                <div class="flex items-center gap-3">
+                  <span class="w-3 h-3 rounded-full bg-amber-500 shadow-sm border border-amber-600"></span>
+                  <span class="text-xs font-bold text-slate-700">Pending Verification</span>
+                </div>
+                <div class="flex items-center gap-3">
+                  <span class="w-3 h-3 rounded-full bg-blue-500 shadow-sm border border-blue-600"></span>
+                  <span class="text-xs font-bold text-slate-700">In Progress</span>
+                </div>
+                <div class="flex items-center gap-3">
+                  <span class="w-3 h-3 rounded-full bg-slate-300 shadow-sm border border-slate-400"></span>
+                  <span class="text-xs font-bold text-slate-700">Resolved</span>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </section>
 
+        <!-- Analytics Widgets (Added features... Coming soon!) -->
+        <!--
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          
+          <!-- Widget 1: Barangay Performance -->
+        <!--
+          <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col hover:shadow-md transition-shadow">
+            <div class="flex items-center justify-between mb-5">
+              <h3 class="text-sm font-black text-slate-800 uppercase tracking-wide">Barangay Performance</h3>
+              <button class="text-[10px] font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 px-2 py-1 rounded transition-colors">View All</button>
+            </div>
+            <!--
+            <div class="space-y-4 flex-1">
+              <div class="flex items-center justify-between group">
+                <div class="flex items-center gap-3">
+                  <span class="w-9 h-9 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center font-black text-xs border border-emerald-100">842</span>
+                  <div>
+                    <p class="text-sm font-bold text-slate-800 group-hover:text-emerald-600 transition-colors cursor-pointer">Brgy. 842, Pandacan</p>
+                    <p class="text-[10px] text-slate-500 font-medium">92% Resolution Rate</p>
+                  </div>
+                </div>
+                <span class="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-bold rounded-md border border-emerald-100">Excellent</span>
+              </div>
+              
+              <div class="flex items-center justify-between group">
+                <div class="flex items-center gap-3">
+                  <span class="w-9 h-9 rounded-full bg-slate-50 text-slate-600 flex items-center justify-center font-black text-xs border border-slate-200">632</span>
+                  <div>
+                    <p class="text-sm font-bold text-slate-800 group-hover:text-emerald-600 transition-colors cursor-pointer">Brgy. 632, Sta. Mesa</p>
+                    <p class="text-[10px] text-slate-500 font-medium">78% Resolution Rate</p>
+                  </div>
+                </div>
+                <span class="px-2.5 py-1 bg-slate-100 text-slate-600 text-[10px] font-bold rounded-md border border-slate-200">Average</span>
+              </div>
+              
+              <div class="flex items-center justify-between group">
+                <div class="flex items-center gap-3">
+                  <span class="w-9 h-9 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center font-black text-xs border border-rose-100">402</span>
+                  <div>
+                    <p class="text-sm font-bold text-slate-800 group-hover:text-rose-600 transition-colors cursor-pointer">Brgy. 402, Sampaloc</p>
+                    <p class="text-[10px] text-slate-500 font-medium">45% Resolution Rate</p>
+                  </div>
+                </div>
+                <span class="px-2.5 py-1 bg-rose-50 text-rose-700 text-[10px] font-bold rounded-md border border-rose-100">Critical</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Widget 2: Predictive Insights (Dark Aesthetic) -->
+        <!--
+          <div class="bg-[#1a202c] p-6 rounded-2xl border border-slate-700 shadow-lg flex flex-col text-white relative overflow-hidden">
+            <!-- Subtle gradient background -->
+        <!--
+            <div class="absolute inset-0 bg-gradient-to-br from-[#1a202c] to-[#2d3748] opacity-50 pointer-events-none"></div>
+
+            <div class="flex items-center gap-2 mb-5 relative z-10">
+              <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+              <h3 class="text-sm font-black uppercase tracking-wide text-white">Predictive Insights</h3>
+            </div>
+            
+            <div class="space-y-3 flex-1 relative z-10">
+              <div class="bg-[#2d3748]/60 border border-slate-600 p-3.5 rounded-xl hover:bg-[#2d3748]/80 transition-colors cursor-pointer">
+                <div class="flex items-start gap-3">
+                  <span class="mt-1 w-2 h-2 rounded-full bg-rose-500 flex-shrink-0"></span>
+                  <div>
+                    <p class="text-xs font-bold text-white">Flood Risk Warning</p>
+                    <p class="text-[10px] text-slate-300 mt-1 leading-relaxed">High waste volume detected near Estero de Sampaloc. 85% probability of localized flooding during upcoming monsoon rains.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="bg-[#2d3748]/60 border border-slate-600 p-3.5 rounded-xl hover:bg-[#2d3748]/80 transition-colors cursor-pointer">
+                <div class="flex items-start gap-3">
+                  <span class="mt-1 w-2 h-2 rounded-full bg-amber-400 flex-shrink-0"></span>
+                  <div>
+                    <p class="text-xs font-bold text-white">Collection Route Inefficiency</p>
+                    <p class="text-[10px] text-slate-300 mt-1 leading-relaxed">Truck Route C experiences a 40% delay due to frequent unmapped dumping points. Dynamic re-routing recommended.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <button class="mt-5 w-full py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-lg text-xs font-bold text-white transition-colors relative z-10">
+              Generate Full AI Report
+            </button>
+          </div>
+        </div>
+
+ -->
+      </section>
       <!-- ========================================================
-           VIEW 2: DETAILED REPORTS LIST PANEL (Hidden by Default)
+           VIEW 2: DETAILED REPORTS LIST PANEL (Updated Mockup Style)
            ======================================================== -->
       <section id="view-reports-panel" class="space-y-6 hidden">
         <div class="flex items-center justify-between">
-          <h3 class="text-xl font-bold text-slate-900">Submitted Garbage Reports</h3>
-          <!-- Quick filters count status summary -->
-          <span class="text-xs text-slate-500 font-medium" id="table-results-counter">Showing 0 reports</span>
+          <div>
+            <h3 class="text-xl font-bold text-slate-900">Reports</h3>
+            <p class="text-xs text-slate-500 mt-0.5">
+              Manage and monitor all civic reports
+            </p>
+          </div>
+          <!-- Export Action Button -->
+          <button id="export-btn"
+            class="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg shadow-sm transition-colors flex items-center gap-1.5 cursor-pointer">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round"
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            <span>Export</span>
+          </button>
         </div>
 
-        <!-- Search and Sort Actions bar -->
-        <div class="bg-white p-4 rounded-xl border border-slate-200 flex flex-col sm:flex-row gap-4 items-center justify-between shadow-sm">
-          <div class="relative w-full sm:max-w-xs">
-            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-              <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
+        <!-- Filter Control Toolbar -->
+        <div
+          class="bg-white p-4 rounded-xl border border-slate-200 flex flex-col xl:flex-row gap-4 items-center justify-between shadow-sm">
+          <div class="flex flex-col sm:flex-row flex-wrap items-center gap-3 w-full xl:w-auto z-[600]">
+            <!-- Search reports input -->
+            <div class="relative w-full sm:w-64">
+              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+              <input id="report-search-input" type="text" placeholder="Search reports..."
+                class="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all shadow-sm" />
             </div>
-            <input 
-              id="report-search-input" 
-              type="text" 
-              placeholder="Search reports..." 
-              class="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-            />
+
+            <!-- 1. Custom Status Dropdown -->
+            <div class="relative w-full sm:w-auto">
+              <button type="button" id="reports-dropdown-status-btn"
+                class="flex items-center justify-between w-full sm:w-40 bg-white border border-slate-200 hover:border-emerald-300 text-slate-700 text-xs rounded-lg pl-3 pr-2 py-2 font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all shadow-sm">
+                <span id="reports-dropdown-status-text" class="truncate">All Status</span>
+                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="2"
+                  viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              <div id="reports-dropdown-status-menu"
+                class="absolute top-full left-0 mt-1 w-full sm:w-44 bg-white border border-slate-100 rounded-xl shadow-lg hidden overflow-hidden py-1">
+                <div
+                  class="px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 cursor-pointer transition-colors"
+                  data-value="all">All Status</div>
+                <div
+                  class="px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 cursor-pointer transition-colors"
+                  data-value="Pending Verification">Pending Verification</div>
+                <div
+                  class="px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 cursor-pointer transition-colors"
+                  data-value="In Progress">In Progress</div>
+                <div
+                  class="px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 cursor-pointer transition-colors"
+                  data-value="Resolved">Resolved</div>
+              </div>
+            </div>
+
+            <!-- 2. Custom Category Dropdown -->
+            <div class="relative w-full sm:w-auto">
+              <button type="button" id="reports-dropdown-category-btn"
+                class="flex items-center justify-between w-full sm:w-40 bg-white border border-slate-200 hover:border-emerald-300 text-slate-700 text-xs rounded-lg pl-3 pr-2 py-2 font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all shadow-sm">
+                <span id="reports-dropdown-category-text" class="truncate">All Categories</span>
+                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="2"
+                  viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              <div id="reports-dropdown-category-menu"
+                class="absolute top-full left-0 mt-1 w-full sm:w-40 bg-white border border-slate-100 rounded-xl shadow-lg hidden overflow-y-auto max-h-48 py-1 custom-scrollbar">
+                <!-- Injected via JS -->
+              </div>
+            </div>
+
+            <!-- 3. Custom Barangay Dropdown -->
+            <div class="relative w-full sm:w-auto">
+              <button type="button" id="reports-dropdown-barangay-btn"
+                class="flex items-center justify-between w-full sm:w-40 bg-white border border-slate-200 hover:border-emerald-300 text-slate-700 text-xs rounded-lg pl-3 pr-2 py-2 font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all shadow-sm">
+                <span class="truncate">All Barangays</span>
+                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="2"
+                  viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+            </div>
+
+            <!-- Filter Reset Button -->
+            <button id="filter-btn"
+              class="w-full sm:w-auto px-4 py-2 border border-slate-200 rounded-lg text-xs font-bold text-emerald-600 bg-white hover:bg-slate-50 shadow-sm transition-colors flex items-center justify-center gap-1.5 cursor-pointer">
+              <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2"
+                viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+              </svg>
+              <span>Filter</span>
+            </button>
           </div>
 
-          <div class="flex items-center gap-3">
+          <!-- 4. Sort Select (By Date) -->
+          <div class="flex items-center gap-3 w-full xl:w-auto justify-end z-[600]">
             <span class="text-xs font-semibold text-slate-500 uppercase">Sort By:</span>
-            <select 
-              id="sort-select" 
-              class="bg-slate-50 border border-slate-200 text-slate-700 text-xs rounded-lg px-3 py-2 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer"
-            >
-              <option value="id-asc">Report ID (Ascending)</option>
-              <option value="id-desc" selected>Report ID (Descending)</option>
-              <option value="status-asc">Status (A-Z)</option>
-              <option value="status-desc">Status (Z-A)</option>
-            </select>
+            <div class="relative w-full sm:w-auto">
+              <button type="button" id="reports-dropdown-sort-btn"
+                class="flex items-center justify-between w-full sm:w-48 bg-white border border-slate-200 hover:border-emerald-300 text-slate-700 text-xs rounded-lg pl-3 pr-2 py-2 font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all shadow-sm">
+                <span id="reports-dropdown-sort-text" class="truncate">Reported At (Newest)</span>
+                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="2"
+                  viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              <div id="reports-dropdown-sort-menu"
+                class="absolute top-full right-0 mt-1 w-full sm:w-48 bg-white border border-slate-100 rounded-xl shadow-lg hidden overflow-hidden py-1">
+                <div
+                  class="px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 cursor-pointer transition-colors"
+                  data-value="date-desc">Reported At (Newest)</div>
+                <div
+                  class="px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 cursor-pointer transition-colors"
+                  data-value="date-asc">Reported At (Oldest)</div>
+              </div>
+            </div>
           </div>
+        </div>
+
+        <!-- Status Filter Sub-Tabs -->
+        <div class="border-b border-slate-200 flex flex-wrap gap-2 text-sm font-medium text-slate-500">
+          <button id="filter-tab-all"
+            class="px-4 py-2.5 border-b-2 border-emerald-600 text-emerald-600 font-bold active-filter-tab transition-all">
+            All Reports
+            <span id="tab-count-all" class="text-xs font-normal text-slate-400">(0)</span>
+          </button>
+          <button id="filter-tab-pending"
+            class="px-4 py-2.5 border-b-2 border-transparent hover:text-slate-800 transition-all">
+            Pending
+            <span id="tab-count-pending" class="text-xs font-normal text-slate-400">(0)</span>
+          </button>
+          <button id="filter-tab-progress"
+            class="px-4 py-2.5 border-b-2 border-transparent hover:text-slate-800 transition-all">
+            In Progress
+            <span id="tab-count-progress" class="text-xs font-normal text-slate-400">(0)</span>
+          </button>
+          <button id="filter-tab-resolved"
+            class="px-4 py-2.5 border-b-2 border-transparent hover:text-slate-800 transition-all">
+            Resolved
+            <span id="tab-count-resolved" class="text-xs font-normal text-slate-400">(0)</span>
+          </button>
         </div>
 
         <!-- Dynamic Data Table Wrapper -->
@@ -224,20 +918,27 @@
           <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse">
               <thead>
-                <tr class="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                <tr
+                  class="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider">
                   <th class="px-6 py-4">Report ID</th>
                   <th class="px-6 py-4">Category</th>
                   <th class="px-6 py-4">Location</th>
-                  <th class="px-6 py-4">Submitted By</th>
                   <th class="px-6 py-4">Status</th>
+                  <th class="px-6 py-4">Priority</th>
+                  <th class="px-6 py-4">Reported At</th>
                   <th class="px-6 py-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody id="reports-table-body" class="divide-y divide-slate-100 text-sm text-slate-700">
-                <!-- Javascript will inject table rows here -->
+                <!-- Data injected dynamically via JavaScript -->
               </tbody>
             </table>
           </div>
+        </div>
+
+        <div class="flex justify-between items-center text-xs font-medium text-slate-500 px-2 mt-4">
+          <span id="table-results-counter">Showing 0 reports</span>
+          <div id="pagination-controls" class="flex items-center gap-1.5"></div>
         </div>
       </section>
 
@@ -245,40 +946,635 @@
            VIEW 3: LIVE REPORTS MAP PANEL (Hidden by Default)
            ======================================================== -->
       <section id="view-map-panel" class="space-y-6 hidden">
+        <!-- Title & Subtitle -->
         <div class="flex items-center justify-between">
-          <h3 class="text-xl font-bold text-slate-900">Live Reports Map</h3>
+          <div>
+            <h3 class="text-xl font-bold text-slate-900 font-display">Live Spatial Alert Map</h3>
+            <p class="text-xs text-slate-500 mt-0.5">Real-time overview of reported waste issues</p>
+          </div>
         </div>
-        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden h-[600px] w-full relative z-0">
-          <div id="lgu-map" class="absolute inset-0 w-full h-full"></div>
+
+        <!-- Top Filters Toolbar (Above Map) TESTING
+        <div
+          class="bg-white px-5 py-3.5 rounded-2xl border border-slate-200/80 flex flex-wrap items-center justify-between shadow-sm gap-4">
+          <div class="flex flex-wrap items-center gap-6"> -->
+        <!-- Status Dropdown -->
+        <!-- <div class="flex items-center gap-2">
+              <span class="text-xs font-semibold text-slate-500">Status</span>
+              <select id="map-filter-status"
+                class="bg-white border border-slate-200 text-slate-700 text-xs rounded-lg px-3 py-1.5 font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer hover:bg-slate-50 transition-colors">
+                <option value="all">Filter Reports (All)</option>
+                <option value="Pending Verification">Pending Verification</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Resolved">Resolved</option>
+              </select>
+            </div> -->
+
+        <!-- Category Dropdown -->
+        <!-- <div class="flex items-center gap-2">
+              <span class="text-xs font-semibold text-slate-500">Category</span>
+              <select id="map-filter-category"
+                class="bg-white border border-slate-200 text-slate-700 text-xs rounded-lg px-3 py-1.5 font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer hover:bg-slate-50 transition-colors">
+                <option value="all">All Categories</option>
+              </select>
+            </div>  -->
+
+        <!-- Top Filters Toolbar (Above Map) -->
+        <div
+          class="bg-white px-5 py-3.5 rounded-2xl border border-slate-200/80 flex flex-wrap items-center justify-between shadow-sm gap-4">
+          <div class="flex flex-wrap items-center gap-6">
+
+            <!-- 1. CUSTOM STATUS DROPDOWN -->
+            <div class="flex items-center gap-2 relative">
+              <span class="text-xs font-semibold text-slate-500">Status</span>
+              <button type="button" id="dropdown-status-btn"
+                class="flex items-center justify-between w-44 bg-white border border-slate-200 hover:border-emerald-300 text-slate-700 text-xs rounded-lg pl-3 pr-2 py-1.5 font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all shadow-sm">
+                <span id="dropdown-status-text" class="truncate">Filter Reports (All)</span>
+                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="2"
+                  viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              <!-- Custom Status Menu (Hidden by default) -->
+              <div id="dropdown-status-menu"
+                class="absolute top-full right-0 mt-1.5 w-44 bg-white border border-slate-100 rounded-xl shadow-lg z-[500] hidden overflow-hidden py-1">
+                <div
+                  class="px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 cursor-pointer transition-colors"
+                  data-value="all">Filter Reports (All)</div>
+                <div
+                  class="px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 cursor-pointer transition-colors"
+                  data-value="Pending Verification">Pending Verification</div>
+                <div
+                  class="px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 cursor-pointer transition-colors"
+                  data-value="In Progress">In Progress</div>
+                <div
+                  class="px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 cursor-pointer transition-colors"
+                  data-value="Resolved">Resolved</div>
+              </div>
+            </div>
+
+            <!-- 2. CUSTOM CATEGORY DROPDOWN -->
+            <div class="flex items-center gap-2 relative">
+              <span class="text-xs font-semibold text-slate-500">Category</span>
+              <button type="button" id="dropdown-category-btn"
+                class="flex items-center justify-between w-40 bg-white border border-slate-200 hover:border-emerald-300 text-slate-700 text-xs rounded-lg pl-3 pr-2 py-1.5 font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all shadow-sm">
+                <span id="dropdown-category-text" class="truncate">All Categories</span>
+                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="2"
+                  viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              <!-- Custom Category Menu (Hidden by default) -->
+              <div id="dropdown-category-menu"
+                class="absolute top-full right-0 mt-1.5 w-40 bg-white border border-slate-100 rounded-xl shadow-lg z-[500] hidden overflow-y-auto max-h-48 py-1 custom-scrollbar">
+                <!-- Javascript will inject categories here -->
+              </div>
+            </div>
+
+            <!-- Severity Filter Pills Group -->
+            <div class="h-6 w-px bg-slate-200 hidden xl:block"></div>
+            <div class="flex items-center gap-2 bg-slate-50 border border-slate-200/60 p-1.5 rounded-xl">
+              <!-- All button -->
+              <button type="button"
+                class="px-3.5 py-1.5 text-xs font-bold rounded-lg border border-emerald-500 bg-emerald-50 text-emerald-800 shadow-sm cursor-default select-none transition-all">
+                All
+              </button>
+
+              <!-- Low Checkbox styled as pill -->
+              <label
+                class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-600 rounded-lg cursor-pointer border border-transparent has-[:checked]:border-slate-200 has-[:checked]:bg-slate-100/60 has-[:checked]:text-slate-900 select-none transition-all hover:bg-slate-100">
+                <input type="checkbox" id="map-severity-low" checked class="sr-only peer">
+                <span
+                  class="w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-100 peer-checked:ring-emerald-400"></span>
+                <span>Low</span>
+              </label>
+
+              <!-- Medium Checkbox styled as pill -->
+              <label
+                class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-600 rounded-lg cursor-pointer border border-transparent has-[:checked]:border-slate-200 has-[:checked]:bg-slate-100/60 has-[:checked]:text-slate-900 select-none transition-all hover:bg-slate-100">
+                <input type="checkbox" id="map-severity-medium" checked class="sr-only peer">
+                <span
+                  class="w-2 h-2 rounded-full bg-amber-500 ring-4 ring-amber-100 peer-checked:ring-amber-400 transition-all"></span>
+                <span>Medium</span>
+              </label>
+
+              <!-- High Checkbox styled as pill -->
+              <label
+                class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-600 rounded-lg cursor-pointer border border-transparent has-[:checked]:border-slate-200 has-[:checked]:bg-slate-100/60 has-[:checked]:text-slate-900 select-none transition-all hover:bg-slate-100">
+                <input type="checkbox" id="map-severity-high" checked class="sr-only peer">
+                <span
+                  class="w-2.5 h-2.5 rounded-full bg-rose-600 ring-4 ring-rose-100 peer-checked:ring-rose-400 transition-all"></span>
+                <span>High</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Filters Action Button -->
+          <button type="button" id="map-btn-filters"
+            class="border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 text-xs font-bold rounded-xl px-4 py-2.5 shadow-sm transition-all flex items-center gap-2 cursor-pointer">
+            <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2"
+              viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round"
+                d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+            </svg>
+            <span>Filters</span>
+          </button>
         </div>
+
+        <!-- Main Map & Sidebar Grid Layout -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[620px]">
+          <!-- Left: Map Container -->
+          <div
+            class="lg:col-span-8 bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden h-full relative z-0">
+            <!-- Leaflet Map Container -->
+            <div id="lgu-map" class="w-full h-full absolute inset-0"></div>
+
+            <!-- Overlay Card 1: Active Alerts (Top-Left) -->
+            <div
+              class="absolute top-4 left-4 z-[400] bg-white/95 border border-slate-100 p-5 rounded-2xl shadow-xl w-36 pointer-events-auto">
+              <span class="text-[10px] font-black uppercase text-slate-400 tracking-wider">Filtered Alerts</span>
+              <div class="text-3xl font-black text-slate-900 mt-1 leading-none tracking-tight"
+                id="map-active-alerts-val">--</div>
+              <span id="map-active-new-indicator"
+                class="text-[10px] font-bold text-slate-400 mt-2 flex items-center gap-1">
+                Calculating...
+              </span>
+            </div>
+
+            <!-- Overlay Card 2: Alert Severity (Bottom-Left) -->
+            <div
+              class="absolute bottom-16 left-4 z-[400] bg-white/95 border border-slate-100 p-5 rounded-2xl shadow-xl w-44 pointer-events-auto">
+              <span class="text-[10px] font-black uppercase text-slate-400 tracking-wider mb-2.5 block">Alert
+                Severity</span>
+              <div class="space-y-2 text-xs font-bold text-slate-700">
+                <div class="flex items-center justify-between">
+                  <span class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-100"></span>
+                    Low
+                  </span>
+                  <span class="text-slate-900" id="map-severity-low-val">--</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-amber-500 ring-2 ring-amber-100"></span>
+                    Medium
+                  </span>
+                  <span class="text-slate-900" id="map-severity-medium-val">--</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-rose-500 ring-2 ring-rose-100"></span>
+                    High
+                  </span>
+                  <span class="text-slate-900" id="map-severity-high-val">--</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Overlay Button 3: Re-center Map (Bottom-Middle) -->
+            <div class="absolute bottom-4 left-1/2 -translate-x-1/2 z-[400] pointer-events-auto">
+              <button type="button"
+                onclick="if(window.mapInstance) window.mapInstance.setView([14.5995, 120.9842], 12);"
+                class="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-black rounded-xl shadow-lg transition-colors flex items-center gap-2 cursor-pointer border border-emerald-600/40">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19 12a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <span>Re-center Map</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Right: Sidebar Panel (Layers & Alerts) -->
+          <div class="lg:col-span-4 flex flex-col gap-6 h-full overflow-hidden">
+            <!-- Map Layers Card -->
+            <div class="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex flex-col flex-shrink-0">
+              <div class="flex items-center justify-between mb-4">
+                <h4 class="text-xs font-black uppercase text-slate-400 tracking-wider">Map Layers</h4>
+                <button type="button"
+                  onclick="document.querySelectorAll('.sr-only.peer').forEach(cb => { if(cb.id !== 'layer-toggle-markers') cb.checked = false; else cb.checked = true; cb.dispatchEvent(new Event('change')); });"
+                  class="text-xs font-bold text-slate-500 hover:text-emerald-700 flex items-center gap-1 cursor-pointer transition-colors">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 8H18.5" />
+                  </svg>
+                  Reset
+                </button>
+              </div>
+              <div class="space-y-4">
+                <!-- Heatmap Toggle -->
+                <div class="flex items-center justify-between">
+                  <span class="flex items-center gap-2.5 text-xs font-bold text-slate-700 font-sans">
+                    <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="2"
+                      viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 9a3 3 0 013 3 3 3 0 003 3c2 0 3.657 1.657 3.657 3.657z" />
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 18.657a8 8 0 01-11.314 0" />
+                    </svg>
+                    Report Heatmap
+                  </span>
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="layer-toggle-heatmap" class="sr-only peer">
+                    <div
+                      class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600">
+                    </div>
+                  </label>
+                </div>
+                <!-- Marker Toggle -->
+                <div class="flex items-center justify-between">
+                  <span class="flex items-center gap-2.5 text-xs font-bold text-slate-700 font-sans">
+                    <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="2"
+                      viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    Report Markers
+                  </span>
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="layer-toggle-markers" checked class="sr-only peer">
+                    <div
+                      class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600">
+                    </div>
+                  </label>
+                </div>
+                <!-- Barangay Boundaries Toggle -->
+                <div class="flex items-center justify-between">
+                  <span class="flex items-center gap-2.5 text-xs font-bold text-slate-700 font-sans">
+                    <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="2"
+                      viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                    </svg>
+                    Barangay Boundary
+                  </span>
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="layer-toggle-barangay" class="sr-only peer">
+                    <div
+                      class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600">
+                    </div>
+                  </label>
+                </div>
+                <!-- Flood Prone Zones Toggle -->
+                <div class="flex items-center justify-between">
+                  <span class="flex items-center gap-2.5 text-xs font-bold text-slate-700 font-sans">
+                    <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="2"
+                      viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    Flood Prone Areas
+                  </span>
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="layer-toggle-flood" class="sr-only peer">
+                    <div
+                      class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600">
+                    </div>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Recent Critical Alerts Card -->
+            <div
+              class="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex flex-col flex-1 overflow-hidden min-h-0">
+              <div class="flex items-center justify-between mb-4 flex-shrink-0">
+                <h4 class="text-sm font-black uppercase text-slate-800 tracking-wider">Recent Critical Alerts</h4>
+                <a href="#" onclick="switchView('reports'); return false;"
+                  class="text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors">View All</a>
+              </div>
+              <div id="recent-critical-alerts-container"
+                class="space-y-3 overflow-y-auto pr-3 flex-1 mb-4 custom-scrollbar">
+                <!-- Dynamic list rendering -->
+                <p class="text-xs text-slate-400 italic py-4 text-center">No critical alerts</p>
+              </div>
+              <button id="map-btn-view-all"
+                class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-2xl shadow-md transition-all text-center cursor-pointer flex items-center justify-center gap-2 hover:shadow-emerald-100 hover:shadow-lg active:scale-[0.99] flex-shrink-0">
+                <span>View All Reports</span>
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- KPI/Stat Cards Row (Below Map) / Tentative-->
+        <!-- <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2">
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+            <span class="text-[10px] font-black uppercase text-slate-400 tracking-wider">Total Reports</span>
+            <div class="text-2xl font-black text-slate-900 mt-1" id="map-kpi-total">--</div>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+            <span class="text-[10px] font-black uppercase text-slate-400 tracking-wider">Pending Action</span>
+            <div class="text-2xl font-black text-amber-600 mt-1" id="map-kpi-pending">--</div>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+            <span class="text-[10px] font-black uppercase text-slate-400 tracking-wider">Under Investigation</span>
+            <div class="text-2xl font-black text-blue-600 mt-1" id="map-kpi-progress">--</div>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+            <span class="text-[10px] font-black uppercase text-slate-400 tracking-wider">Resolved Today</span>
+            <div class="text-2xl font-black text-emerald-600 mt-1" id="map-kpi-resolved">--</div>
+          </div>
+        </div> -->
+      </section>
+
+      <!-- ========================================================
+           VIEW 4: ANALYTICS OVERVIEW PANEL (Hidden by Default)
+           ======================================================== -->
+      <section id="view-analytics-panel" class="space-y-6 hidden">
+        <!-- Title, Subtitle, & Filters -->
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h3 class="text-xl font-bold text-slate-900 font-display">Analytics Overview</h3>
+            <p class="text-xs text-slate-500 mt-0.5">Detailed insights and trends</p>
+          </div>
+
+          <!-- Analytics Top-Right Filters -->
+          <div class="flex items-center gap-3">
+            <!-- Date Filter Dropdown -->
+            <div class="relative">
+              <select id="analytics-date-filter"
+                class="bg-white border border-slate-200 text-slate-700 text-xs rounded-lg px-3 py-1.5 font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer hover:bg-slate-50 transition-colors shadow-sm">
+                <option value="7days">Jun 24 - Jun 30, 2026</option>
+                <option value="30days">Last 30 Days</option>
+                <option value="all">All Time</option>
+              </select>
+            </div>
+
+            <!-- Barangay Filter Dropdown -->
+            <div class="relative">
+              <button type="button" id="analytics-brgy-filter"
+                class="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 text-xs rounded-lg px-3 py-1.5 font-bold focus:outline-none hover:bg-slate-50 transition-colors shadow-sm cursor-pointer">
+                <span>All Barangays</span>
+                <svg class="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" stroke-width="2"
+                  viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- KPI Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <!-- Total Reports -->
+          <div
+            class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow relative overflow-hidden">
+            <div>
+              <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Reports</p>
+              <p id="analytics-stat-total" class="text-3xl font-black text-slate-900 tracking-tight mt-1">--</p>
+            </div>
+            <div class="mt-3 flex items-center gap-1 text-[10px] font-semibold text-emerald-700">
+              <span id="analytics-trend-total">↑ 12%</span>
+              <span id="analytics-subtext-total" class="text-slate-400">from last week</span>
+            </div>
+          </div>
+
+          <!-- Resolved -->
+          <div
+            class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow relative overflow-hidden">
+            <div>
+              <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Resolved</p>
+              <p id="analytics-stat-resolved" class="text-3xl font-black text-slate-900 tracking-tight mt-1">--</p>
+            </div>
+            <div class="mt-3 flex items-center gap-1 text-[10px] font-semibold text-emerald-700">
+              <span id="analytics-trend-resolved">↑ 18%</span>
+              <span id="analytics-subtext-resolved" class="text-slate-400">from last week</span>
+            </div>
+          </div>
+
+          <!-- Pending -->
+          <div
+            class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow relative overflow-hidden">
+            <div>
+              <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Pending</p>
+              <p id="analytics-stat-pending" class="text-3xl font-black text-slate-900 tracking-tight mt-1">--</p>
+            </div>
+            <div class="mt-3 flex items-center gap-1 text-[10px] font-semibold text-rose-700">
+              <span id="analytics-trend-pending">↓ 7%</span>
+              <span id="analytics-subtext-pending" class="text-slate-400">from last week</span>
+            </div>
+          </div>
+
+          <!-- Avg. Response Time -->
+          <div
+            class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow relative overflow-hidden">
+            <div>
+              <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Avg. Response Time</p>
+              <p id="analytics-stat-time" class="text-3xl font-black text-slate-900 tracking-tight mt-1">18h</p>
+            </div>
+            <div class="mt-3 flex items-center gap-1 text-[10px] font-semibold text-emerald-700">
+              <span id="analytics-trend-time">↓ 2h</span>
+              <span id="analytics-subtext-time" class="text-slate-400">from last week</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Middle Charts Row -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <!-- Reports Over Time (Line Chart) -->
+          <div class="lg:col-span-7 bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex flex-col h-[350px]">
+            <div class="flex items-center justify-between mb-4 flex-shrink-0">
+              <h4 class="text-xs font-black uppercase text-slate-400 tracking-wider">Reports Over Time</h4>
+              <div class="flex items-center gap-3 text-[10px] font-bold">
+                <span class="flex items-center gap-1.5 text-blue-600">
+                  <span class="w-2.5 h-0.5 bg-blue-600 rounded"></span> Reports
+                </span>
+                <span class="flex items-center gap-1.5 text-emerald-600">
+                  <span class="w-2.5 h-0.5 bg-emerald-600 rounded"></span> Resolved
+                </span>
+              </div>
+            </div>
+            <!-- Dynamic SVG Chart Container -->
+            <div id="analytics-line-chart-container" class="flex-1 w-full relative min-h-0">
+              <!-- JS will inject dynamic SVG line chart here -->
+            </div>
+          </div>
+
+          <!-- Reports by Category (Donut Chart) -->
+          <div class="lg:col-span-5 bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex flex-col h-[350px]">
+            <h4 class="text-xs font-black uppercase text-slate-400 tracking-wider mb-4 flex-shrink-0">Reports by
+              Category</h4>
+            <div class="flex flex-1 items-center justify-center gap-6 min-h-0">
+              <!-- Left: Conic Gradient Circular Donut -->
+              <div class="relative w-36 h-36 flex-shrink-0 flex items-center justify-center">
+                <div id="analytics-donut-chart" class="w-full h-full rounded-full transition-all duration-300"></div>
+                <!-- Inner white cutout to make it a donut -->
+                <div class="absolute w-24 h-24 bg-white rounded-full flex items-center justify-center shadow-inner">
+                  <span class="text-slate-400 text-[10px] font-black uppercase">Types</span>
+                </div>
+              </div>
+
+              <!-- Right: Legend with Categories & Percentages -->
+              <div id="analytics-donut-legend"
+                class="flex-1 space-y-2 text-xs font-bold text-slate-700 max-h-48 overflow-y-auto custom-scrollbar">
+                <!-- JS will inject dynamic legend here -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bottom Charts Row -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <!-- Top 5 Barangays (Table with WIP Tag) -->
+          <div
+            class="lg:col-span-7 bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex flex-col min-h-[320px]">
+            <div class="flex items-center gap-3 mb-4">
+              <h3 class="text-xs font-black text-slate-800 uppercase tracking-widest">Top 5 Barangays by Reports</h3>
+              <span
+                class="text-[9px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full flex items-center gap-1 cursor-help"
+                title="This table utilizes simulated data for MVP demonstration purposes.">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                MVP Preview Data
+              </span>
+            </div>
+            <div class="flex-1 overflow-x-auto min-w-full">
+              <table class="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr class="border-b border-slate-100 text-[10px] font-black uppercase text-slate-400 tracking-wider">
+                    <th class="py-2.5">Barangay</th>
+                    <th class="py-2.5 text-right">Reports</th>
+                    <th class="py-2.5 text-right">Resolved</th>
+                    <th class="py-2.5 text-right">Rate</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-50 font-semibold text-slate-700">
+                  <tr>
+                    <td class="py-3">Tandang Sora</td>
+                    <td class="py-3 text-right">156</td>
+                    <td class="py-3 text-right">132</td>
+                    <td class="py-3 text-right text-emerald-600">85%</td>
+                  </tr>
+                  <tr>
+                    <td class="py-3">Commonwealth</td>
+                    <td class="py-3 text-right">134</td>
+                    <td class="py-3 text-right">118</td>
+                    <td class="py-3 text-right text-emerald-600">88%</td>
+                  </tr>
+                  <tr>
+                    <td class="py-3">Batasan Hills</td>
+                    <td class="py-3 text-right">112</td>
+                    <td class="py-3 text-right">96</td>
+                    <td class="py-3 text-right text-emerald-600">86%</td>
+                  </tr>
+                  <tr>
+                    <td class="py-3">Payatas</td>
+                    <td class="py-3 text-right">98</td>
+                    <td class="py-3 text-right">82</td>
+                    <td class="py-3 text-right text-emerald-600">84%</td>
+                  </tr>
+                  <tr>
+                    <td class="py-3">Socorro</td>
+                    <td class="py-3 text-right">76</td>
+                    <td class="py-3 text-right">64</td>
+                    <td class="py-3 text-right text-emerald-600">84%</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Average Response Time (Bar Chart) -->
+          <div
+            class="lg:col-span-5 bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex flex-col min-h-[320px]">
+            <div class="flex items-center gap-3 mb-4">
+              <h3 class="text-xs font-black text-slate-800 uppercase tracking-widest">Average Response Time</h3>
+              <span
+                class="text-[9px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full flex items-center gap-1 cursor-help"
+                title="This chart utilizes simulated data for MVP demonstration purposes.">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                MVP Preview Data
+              </span>
+            </div>
+            <!-- CSS bar chart -->
+            <div
+              class="flex-1 flex items-end justify-between px-2 pt-6 pb-2 h-full text-[10px] font-bold text-slate-500">
+              <!-- Bar 1 -->
+              <div class="flex flex-col items-center gap-2 flex-1">
+                <span class="text-slate-800">12h</span>
+                <div class="w-7 bg-emerald-600/90 rounded-t-lg transition-all duration-500 hover:bg-emerald-700"
+                  style="height: 60px;"></div>
+                <span class="text-[9px] text-slate-400 truncate w-12 text-center">T. Sora</span>
+              </div>
+              <!-- Bar 2 -->
+              <div class="flex flex-col items-center gap-2 flex-1">
+                <span class="text-slate-800">16h</span>
+                <div class="w-7 bg-emerald-600/90 rounded-t-lg transition-all duration-500 hover:bg-emerald-700"
+                  style="height: 80px;"></div>
+                <span class="text-[9px] text-slate-400 truncate w-12 text-center">C-wealth</span>
+              </div>
+              <!-- Bar 3 -->
+              <div class="flex flex-col items-center gap-2 flex-1">
+                <span class="text-slate-800">14h</span>
+                <div class="w-7 bg-emerald-600/90 rounded-t-lg transition-all duration-500 hover:bg-emerald-700"
+                  style="height: 70px;"></div>
+                <span class="text-[9px] text-slate-400 truncate w-12 text-center">Batasan</span>
+              </div>
+              <!-- Bar 4 -->
+              <div class="flex flex-col items-center gap-2 flex-1">
+                <span class="text-slate-800">20h</span>
+                <div class="w-7 bg-emerald-600/90 rounded-t-lg transition-all duration-500 hover:bg-emerald-700"
+                  style="height: 100px;"></div>
+                <span class="text-[9px] text-slate-400 truncate w-12 text-center">Payatas</span>
+              </div>
+              <!-- Bar 5 -->
+              <div class="flex flex-col items-center gap-2 flex-1">
+                <span class="text-slate-800">18h</span>
+                <div class="w-7 bg-emerald-600/90 rounded-t-lg transition-all duration-500 hover:bg-emerald-700"
+                  style="height: 90px;"></div>
+                <span class="text-[9px] text-slate-400 truncate w-12 text-center">Socorro</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       </section>
     </main>
 
     <!-- Footer -->
     <footer class="bg-white border-t border-slate-200 py-4 px-8 text-center text-xs text-slate-400 font-medium">
-      &copy; 2026 Basura-Pin Portal. Government Admin Portal. All Rights Reserved.
+      &copy; 2026 E-Tapon Mo Portal. Government Admin Portal. All Rights
+      Reserved.
     </footer>
   </div>
 
   <!-- ==========================================
        MODAL: REPORT DETAIL DRILL-DOWN VIEW
        ========================================== -->
-  <div id="report-detail-modal" class="fixed inset-0 z-50 overflow-y-auto hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+  <div id="report-detail-modal" class="fixed inset-0 z-[1000] overflow-y-auto hidden" aria-labelledby="modal-title"
+    role="dialog" aria-modal="true">
     <!-- Backdrop overlay -->
     <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-      <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm transition-opacity" id="modal-backdrop" aria-hidden="true"></div>
+      <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm transition-opacity" id="modal-backdrop"
+        aria-hidden="true"></div>
 
       <!-- Centered modal box -->
       <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-      <div class="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full border border-slate-100">
-        
+      <div
+        class="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full border border-slate-100">
         <!-- Modal Header -->
         <div class="bg-slate-50 px-6 py-4 border-b border-slate-200 flex items-center justify-between">
           <div>
-            <h3 class="text-base font-bold text-slate-900" id="modal-report-id">Report Details</h3>
-            <p class="text-xs text-slate-500 mt-0.5">Submitted via community web app</p>
+            <h3 class="text-base font-bold text-slate-900" id="modal-report-id">
+              Report Details
+            </h3>
+            <p class="text-xs text-slate-500 mt-0.5">
+              Submitted via community web app
+            </p>
           </div>
-          <button id="close-modal-btn" class="text-slate-400 hover:text-slate-600 transition-colors p-1.5 rounded-lg hover:bg-slate-100">
+          <button id="close-modal-btn"
+            class="text-slate-400 hover:text-slate-600 transition-colors p-1.5 rounded-lg hover:bg-slate-100">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -288,32 +1584,43 @@
         <!-- Modal Body Content -->
         <div class="p-6 space-y-6">
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            
             <!-- Left Info Panel -->
             <div class="space-y-4">
               <div>
                 <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Category</span>
-                <p id="modal-category" class="text-sm font-semibold text-slate-900 mt-0.5">--</p>
+                <p id="modal-category" class="text-sm font-semibold text-slate-900 mt-0.5">
+                  --
+                </p>
               </div>
 
               <div>
-                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Location Address</span>
-                <p id="modal-location" class="text-sm text-slate-800 mt-0.5">--</p>
+                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Location
+                  Address</span>
+                <p id="modal-location" class="text-sm text-slate-800 mt-0.5">
+                  --
+                </p>
               </div>
 
               <div>
                 <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Reported By</span>
-                <p id="modal-submitter" class="text-sm text-slate-800 mt-0.5">--</p>
+                <p id="modal-submitter" class="text-sm text-slate-800 mt-0.5">
+                  --
+                </p>
               </div>
 
               <div>
                 <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Contact</span>
-                <p id="modal-contact-info" class="text-sm text-slate-800 mt-0.5">--</p>
+                <p id="modal-contact-info" class="text-sm text-slate-800 mt-0.5">
+                  --
+                </p>
               </div>
 
               <div class="pt-2 border-t border-slate-100">
-                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">AI Analysis Volume</span>
-                <p id="modal-ai-volume" class="text-sm font-medium text-slate-800 mt-0.5">--</p>
+                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">AI Analysis
+                  Volume</span>
+                <p id="modal-ai-volume" class="text-sm font-medium text-slate-800 mt-0.5">
+                  --
+                </p>
               </div>
 
               <div>
@@ -327,30 +1634,32 @@
 
             <!-- Right Visual Panel (Trash Image Placeholder) -->
             <div class="flex flex-col">
-              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Submitted Photo</span>
-              <div class="flex-1 min-h-[180px] bg-slate-100 border border-slate-200 rounded-xl overflow-hidden flex items-center justify-center">
-                <img 
-                  id="modal-report-image"
-                  src="https://images.unsplash.com/photo-1530587191325-3db32d826c18?q=80&w=400&auto=format&fit=crop" 
-                  alt="Garbage report attachment" 
-                  class="w-full h-full object-cover"
-                />
+              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Submitted
+                Photo</span>
+              <div
+                class="flex-1 min-h-[180px] bg-slate-100 border border-slate-200 rounded-xl overflow-hidden flex items-center justify-center">
+                <img id="modal-report-image"
+                  src="https://images.unsplash.com/photo-1530587191325-3db32d826c18?q=80&w=400&auto=format&fit=crop"
+                  alt="Garbage report attachment" class="w-full h-full object-cover" />
               </div>
             </div>
-
           </div>
 
           <!-- Notes / Additional Comments -->
           <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
             <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Reporter Notes</span>
-            <p id="modal-notes" class="text-xs text-slate-700 italic mt-1">"--"</p>
+            <p id="modal-notes" class="text-xs text-slate-700 italic mt-1">
+              "--"
+            </p>
           </div>
 
           <!-- Status Editor controls -->
-          <div class="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div
+            class="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
               <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Current Status</span>
-              <div id="modal-status-badge" class="inline-flex items-center gap-2 mt-1 px-2.5 py-1 rounded-full text-xs font-semibold">
+              <div id="modal-status-badge"
+                class="inline-flex items-center gap-2 mt-1 px-2.5 py-1 rounded-full text-xs font-semibold">
                 <span class="w-2 h-2 rounded-full bg-slate-400"></span>
                 <span>--</span>
               </div>
@@ -359,11 +1668,11 @@
             <!-- Admin action to transition status -->
             <div class="flex items-center gap-2">
               <label for="modal-status-select" class="text-xs font-semibold text-slate-500">Update Status:</label>
-              <select 
-                id="modal-status-select"
-                class="bg-white border border-slate-200 text-xs rounded-lg px-3 py-2 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-              >
-                <option value="Pending Verification">Pending Verification</option>
+              <select id="modal-status-select"
+                class="bg-white border border-slate-200 text-xs rounded-lg px-3 py-2 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer">
+                <option value="Pending Verification">
+                  Pending Verification
+                </option>
                 <option value="In Progress">In Progress</option>
                 <option value="Resolved">Resolved</option>
               </select>
@@ -373,14 +1682,15 @@
 
         <!-- Modal Footer Actions -->
         <div class="bg-slate-50 px-6 py-4 border-t border-slate-200 flex justify-end gap-3">
-          <button id="modal-btn-close-secondary" class="px-4 py-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-semibold transition-colors">
+          <button id="modal-btn-close-secondary"
+            class="px-4 py-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-semibold transition-colors">
             Cancel
           </button>
-          <button id="modal-btn-save" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors">
+          <button id="modal-btn-save"
+            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors">
             Save Status Changes
           </button>
         </div>
-
       </div>
     </div>
   </div>
@@ -388,4 +1698,5 @@
   <!-- Admin logic script -->
   <script type="module" src="lgu.js"></script>
 </body>
+
 </html>

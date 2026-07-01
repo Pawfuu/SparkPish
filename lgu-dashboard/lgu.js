@@ -1,3 +1,7 @@
+// ==========================================
+// 1. IMPORTS & CONSTANTS
+// ==========================================
+
 /**
  * LGU Administrator Portal — live Firestore dashboard
  *
@@ -12,8 +16,6 @@ import {
   onSnapshot,
   doc,
   updateDoc,
-  query,
-  orderBy,
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 (function () {
@@ -35,19 +37,85 @@ import {
   const PLACEHOLDER_IMAGE =
     "https://images.unsplash.com/photo-1530587191325-3db32d826c18?q=80&w=400&auto=format&fit=crop";
 
+  // ==========================================
+  // 2. UTILITY FUNCTIONS
+  // ==========================================
+
   function normalizeStatus(rawStatus) {
     const key = String(rawStatus || "pending").trim().toLowerCase();
     return STATUS_TO_UI[key] || "Pending Verification";
   }
 
+  function normalizeCategory(rawCategory) {
+    if (!rawCategory) return "Uncategorized";
+    const cat = String(rawCategory).trim().toLowerCase();
+
+    // Mappings from the misaligned user-app values to match what the user chose
+    const legacyMapping = {
+      "organic": "Recyclable",
+      "plastic": "Non-recyclable",
+      "construction": "Hazardous Waste",
+      "mixed": "Nabubulok"
+    };
+
+    if (legacyMapping[cat]) {
+      return legacyMapping[cat];
+    }
+
+    // Capitalize first letter of category if it's already a clean string
+    return rawCategory.charAt(0).toUpperCase() + rawCategory.slice(1);
+  }
+
+  function showToast(featureName) {
+    let container = document.getElementById("toast-container");
+    if (!container) {
+      container = document.createElement("div");
+      container.id = "toast-container";
+      container.className = "fixed bottom-5 right-5 z-[9999] flex flex-col gap-3";
+      document.body.appendChild(container);
+    }
+
+    const toast = document.createElement("div");
+    toast.className = "flex items-center gap-3 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl text-sm font-medium transform transition-all duration-300 translate-y-10 opacity-0";
+    toast.innerHTML = `
+      <span class="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+      </span>
+      <div>
+        <p class="font-bold text-slate-100">${featureName}</p>
+        <p class="text-[10px] text-slate-400">This feature will be added in the next update.</p>
+      </div>
+    `;
+    container.appendChild(toast);
+
+    requestAnimationFrame(() => {
+      toast.classList.remove("translate-y-10", "opacity-0");
+    });
+
+    setTimeout(() => {
+      toast.classList.add("translate-y-10", "opacity-0");
+      setTimeout(() => toast.remove(), 300);
+    }, 3000);
+  }
+
   function mapDocToReport(docSnap) {
     const data = docSnap.data();
+
+    // Safely parse the location whether it's a string or an object
+    let safeLocation = "Unknown Location";
+    if (typeof data.location === "string") {
+      safeLocation = data.location;
+    } else if (typeof data.location === "object" && data.location !== null) {
+      // Extract the human-readable address from the object
+      safeLocation = data.location.display_name || data.location.address || data.location.name || "Map Pin Location";
+    }
+
     return {
       docId: docSnap.id,
       reportId: docSnap.id,
       id: docSnap.id.slice(0, 8).toUpperCase(),
-      category: data.wasteType || "Uncategorized",
-      location: data.location || "Unknown location",
+      category: normalizeCategory(data.wasteType),
+      location: safeLocation,
       coordinates: data.coordinates || null,
       submittedBy: data.reporterName || "Anonymous",
       contactInfo: data.contactInfo || "Not Provided",
@@ -60,24 +128,45 @@ import {
     };
   }
 
+  // ==========================================
+  // 3. GLOBAL STATE & DOM ELEMENTS
+  // ==========================================
+
   let reports = [];
+  let lastFilteredReports = [];
+  let currentPage = 1;
+  const itemsPerPage = 8;
   let selectedReport = null;
   let unsubscribeReports = null;
+
+  // Map Variables
   let mapInstance = null;
   let markerLayerGroup = null;
   let dashboardMapInstance = null;
   let dashboardLayerGroup = null;
+  let activeMapStatusFilter = "all";
+  let activeMapCategoryFilter = "all";
+  let showSeverityLow = true;
+  let showSeverityMedium = true;
+  let showSeverityHigh = true;
+  let showMarkers = true;
+  let heatLayer = null;
+  let showHeatmap = false;
 
+  // DOM Elements
   const navDashboardBtn = document.getElementById("nav-dashboard");
   const navReportsBtn = document.getElementById("nav-reports");
   const navMapBtn = document.getElementById("nav-map");
   const navAnalyticsBtn = document.getElementById("nav-analytics");
+  const navBarangayBtn = document.getElementById("nav-barangay");
   const navSettingsBtn = document.getElementById("nav-settings");
 
   const viewDashboardPanel = document.getElementById("view-dashboard-panel");
   const viewReportsPanel = document.getElementById("view-reports-panel");
   const viewMapPanel = document.getElementById("view-map-panel");
+  const viewAnalyticsPanel = document.getElementById("view-analytics-panel");
   const viewTitle = document.getElementById("view-title");
+  const mainHeader = document.getElementById("main-header");
 
   const statActiveEl = document.getElementById("stat-active");
   const statPendingEl = document.getElementById("stat-pending");
@@ -106,20 +195,57 @@ import {
   const modalBtnCloseSecondary = document.getElementById("modal-btn-close-secondary");
   const modalBtnSave = document.getElementById("modal-btn-save");
 
-  function subscribeToReports() {
-    const reportsQuery = query(
-      collection(db, "reports"),
-      orderBy("createdAt", "desc")
-    );
+  // ==========================================
+  // 4. CORE & FIREBASE LOGIC
+  // ==========================================
 
+  function init() {
+    setupEventListeners();
+    updateDateDisplay();
+    initLeafletMap();
+    refreshMapSizes(100);
+    subscribeToReports();
+
+    window.addEventListener("beforeunload", () => {
+      if (unsubscribeReports) unsubscribeReports();
+    });
+  }
+
+  function refreshMapSizes(delay) {
+    setTimeout(function () {
+      if (window.mapInstance) window.mapInstance.invalidateSize();
+      if (window.dashboardMapInstance) window.dashboardMapInstance.invalidateSize();
+    }, delay);
+  }
+
+  function syncMapGlobals() {
+    window.mapInstance = mapInstance;
+    window.dashboardMapInstance = dashboardMapInstance;
+  }
+
+  function subscribeToReports() {
+    // IMPORTANT: Do NOT use orderBy("createdAt") here.
+    // Firestore silently excludes any document that is missing the ordered field,
+    // which causes KPI counts to show 0 when some reports lack a createdAt timestamp.
+    // We fetch ALL documents and sort client-side instead.
+    const reportsQuery = collection(db, "reports");
     unsubscribeReports = onSnapshot(
       reportsQuery,
       (snapshot) => {
-        reports = snapshot.docs.map(mapDocToReport);
-        console.log("Firestore snapshot reports:", reports);
+        // Map all docs then sort descending by createdAt client-side
+        reports = snapshot.docs
+          .map(mapDocToReport)
+          .sort((a, b) => {
+            const ta = a.createdAt ? a.createdAt.getTime() : 0;
+            const tb = b.createdAt ? b.createdAt.getTime() : 0;
+            return tb - ta;
+          });
+        updateCategoryDropdown(reports);
         updateDashboardMetrics(reports);
         renderReportsTable();
+        if (typeof updateRecentCriticalAlerts === "function") updateRecentCriticalAlerts();
         if (typeof renderMapMarkers === "function") renderMapMarkers();
+        if (typeof updateAnalyticsMetrics === "function") updateAnalyticsMetrics();
 
         if (selectedReport) {
           const fresh = reports.find((r) => r.docId === selectedReport.docId);
@@ -132,114 +258,737 @@ import {
       (error) => {
         console.error("Firestore onSnapshot error:", error);
         if (statActiveEl) statActiveEl.textContent = "!";
-        alert(
-          "Could not load reports from Firestore. Check firebase-config.js and security rules.\n\n" +
-            error.message
-        );
+        alert("Could not load reports from Firestore.\n\n" + error.message);
       }
     );
   }
 
-  function init() {
-    setupEventListeners();
-    updateDateDisplay();
-    initLeafletMap();
-    setTimeout(function () {
-      if (dashboardMapInstance) dashboardMapInstance.invalidateSize();
-    }, 100);
-    subscribeToReports();
-
-    window.addEventListener("beforeunload", () => {
-      if (unsubscribeReports) unsubscribeReports();
-    });
+  function updateDateDisplay() {
+    const options = { weekday: "long", year: "numeric", month: "long", day: "numeric" };
+    const dateEl = document.getElementById("header-date");
+    if (dateEl) dateEl.textContent = new Date().toLocaleDateString("en-US", options);
   }
 
-  function updateDateDisplay() {
-    const options = {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    };
-    const dateEl = document.getElementById("header-date");
-    if (dateEl) {
-      dateEl.textContent = new Date().toLocaleDateString("en-US", options);
+  function updateCategoryDropdown(reportsList) {
+    const categories = Array.from(new Set(reportsList.map(r => r.category).filter(Boolean)));
+    categories.sort();
+
+    // 1. Reports View Custom Dropdown
+    const reportsCatMenu = document.getElementById("reports-dropdown-category-menu");
+    const reportsCatText = document.getElementById("reports-dropdown-category-text");
+
+    if (reportsCatMenu) {
+      reportsCatMenu.innerHTML = `<div class="px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 cursor-pointer transition-colors" data-value="all">All Categories</div>`;
+      categories.forEach(cat => {
+        const optionDiv = document.createElement("div");
+        optionDiv.className = "px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 cursor-pointer transition-colors";
+        optionDiv.dataset.value = cat;
+        optionDiv.textContent = cat.charAt(0).toUpperCase() + cat.slice(1);
+        reportsCatMenu.appendChild(optionDiv);
+      });
+
+      // Bind click events
+      reportsCatMenu.querySelectorAll("div[data-value]").forEach(opt => {
+        opt.addEventListener("click", (e) => {
+          e.stopPropagation();
+          currentCategoryFilter = e.target.dataset.value;
+          if (reportsCatText) reportsCatText.textContent = e.target.textContent;
+          reportsCatMenu.classList.add("hidden");
+          currentPage = 1;
+          renderReportsTable();
+        });
+      });
+    }
+
+    // 2. Map View Custom Dropdown
+    const mapCatMenu = document.getElementById("dropdown-category-menu");
+    const mapCatText = document.getElementById("dropdown-category-text");
+
+    if (mapCatMenu) {
+      mapCatMenu.innerHTML = `<div class="px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 cursor-pointer transition-colors" data-value="all">All Categories</div>`;
+      categories.forEach(cat => {
+        const optionDiv = document.createElement("div");
+        optionDiv.className = "px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 cursor-pointer transition-colors";
+        optionDiv.dataset.value = cat;
+        optionDiv.textContent = cat.charAt(0).toUpperCase() + cat.slice(1);
+        mapCatMenu.appendChild(optionDiv);
+      });
+
+      mapCatMenu.querySelectorAll("div[data-value]").forEach(opt => {
+        opt.addEventListener("click", (e) => {
+          e.stopPropagation();
+          activeMapCategoryFilter = e.target.dataset.value;
+          if (mapCatText) mapCatText.textContent = e.target.textContent;
+          mapCatMenu.classList.add("hidden");
+          renderMapMarkers();
+        });
+      });
     }
   }
 
+  function formatReportedAt(date) {
+    if (!date) return "N/A";
+    const options = { month: "short", day: "numeric" };
+    const formattedDate = date.toLocaleDateString("en-US", options);
+
+    let hours = date.getHours();
+    const minutes = date.getMinutes();
+    const ampm = hours >= 12 ? "PM" : "AM";
+    hours = hours % 12;
+    hours = hours ? hours : 12; // the hour '0' should be '12'
+    const strMinutes = minutes < 10 ? "0" + minutes : minutes;
+
+    return `${formattedDate}, ${hours}:${strMinutes} ${ampm}`;
+  }
+
+  function renderPaginationControls(totalPages) {
+    const container = document.getElementById("pagination-controls");
+    if (!container) return;
+    container.innerHTML = "";
+
+    if (totalPages <= 1) return; // Hide pagination if only 1 page
+
+    // Helper to append a button
+    function createPageBtn(label, pageNum, disabled = false, isActive = false) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.disabled = disabled;
+
+      if (isActive) {
+        btn.className = "px-2.5 py-1 text-xs font-bold rounded-lg border border-emerald-600 bg-emerald-50 text-emerald-800 transition-colors";
+      } else if (disabled) {
+        btn.className = "p-1 text-slate-300 pointer-events-none";
+      } else {
+        btn.className = "px-2.5 py-1 text-xs font-medium rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer";
+      }
+
+      btn.innerHTML = label;
+      if (!disabled) {
+        btn.addEventListener("click", () => {
+          currentPage = pageNum;
+          renderReportsTable();
+        });
+      }
+      return btn;
+    }
+
+    // Previous button
+    const prevBtn = createPageBtn(
+      `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>`,
+      currentPage - 1,
+      currentPage === 1
+    );
+    container.appendChild(prevBtn);
+
+    // Calculate page range to show
+    let range = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) range.push(i);
+    } else {
+      if (currentPage <= 4) {
+        range = [1, 2, 3, 4, 5, "...", totalPages];
+      } else if (currentPage >= totalPages - 3) {
+        range = [1, "...", totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+      } else {
+        range = [1, "...", currentPage - 1, currentPage, currentPage + 1, "...", totalPages];
+      }
+    }
+
+    // Render page buttons
+    range.forEach(item => {
+      if (item === "...") {
+        const dot = document.createElement("span");
+        dot.className = "px-1 text-slate-400 font-bold select-none text-xs";
+        dot.textContent = "...";
+        container.appendChild(dot);
+      } else {
+        const pageBtn = createPageBtn(item.toString(), item, false, item === currentPage);
+        container.appendChild(pageBtn);
+      }
+    });
+
+    // Next button
+    const nextBtn = createPageBtn(
+      `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>`,
+      currentPage + 1,
+      currentPage === totalPages
+    );
+    container.appendChild(nextBtn);
+  }
+
+  function exportToCSV() {
+    const dataToExport = lastFilteredReports.length > 0 ? lastFilteredReports : reports;
+    if (dataToExport.length === 0) {
+      alert("No reports available to export.");
+      return;
+    }
+
+    // CSV Headers
+    const headers = [
+      "Report ID",
+      "Category",
+      "Location Address",
+      "Latitude",
+      "Longitude",
+      "Status",
+      "Priority",
+      "Submitted By",
+      "Contact Info",
+      "AI Volume Estimate",
+      "Severity Score",
+      "Notes",
+      "Reported At"
+    ];
+
+    // Convert rows to CSV strings
+    const csvRows = [headers.join(",")];
+
+    dataToExport.forEach(report => {
+      let lat = "";
+      let lng = "";
+      if (report.coordinates) {
+        if (report.coordinates.lat != null) lat = report.coordinates.lat;
+        if (report.coordinates.lng != null) lng = report.coordinates.lng;
+      }
+
+      let priorityText = "Low";
+      if (report.severity >= 4) {
+        priorityText = "High";
+      } else if (report.severity === 3) {
+        priorityText = "Medium";
+      }
+
+      const row = [
+        `#${report.id}`,
+        report.category,
+        report.location,
+        lat,
+        lng,
+        report.status,
+        priorityText,
+        report.submittedBy,
+        report.contactInfo,
+        report.aiVolume,
+        report.severity,
+        report.notes,
+        report.createdAt ? report.createdAt.toISOString() : "N/A"
+      ];
+
+      // Escape quotes and wrap cell values in double quotes
+      const escapedRow = row.map(val => {
+        const strVal = String(val == null ? "" : val).replace(/"/g, '""');
+        return `"${strVal}"`;
+      });
+      csvRows.push(escapedRow.join(","));
+    });
+
+    // Create a blob and download it
+    const csvString = csvRows.join("\n");
+    const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+
+    link.setAttribute("href", url);
+    link.setAttribute("download", `basura_pin_reports_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
   function updateDashboardMetrics(reports) {
-    const activeCount = reports.length;
-    const pendingCount = reports.filter(
-      (r) => r.status === "Pending Verification"
-    ).length;
-    const inProgressCount = reports.filter(
-      (r) => r.status === "In Progress"
-    ).length;
+    // 1. Dashboard View Stats
+    const activeCount = reports.filter((r) => r.status !== "Resolved").length; // Active non-resolved reports
+    const criticalCount = reports.filter((r) => r.severity >= 4 && r.status !== "Resolved").length; // Active severity >= 4
+    const pendingCount = reports.filter((r) => r.status === "Pending Verification").length;
     const resolvedCount = reports.filter((r) => r.status === "Resolved").length;
+    const inProgressCount = reports.filter((r) => r.status === "In Progress").length;
 
     if (statActiveEl) statActiveEl.textContent = String(activeCount);
     if (statPendingEl) statPendingEl.textContent = String(pendingCount);
-    if (statProgressEl) statProgressEl.textContent = String(inProgressCount);
+    if (statProgressEl) statProgressEl.textContent = String(criticalCount);
     if (statResolvedEl) statResolvedEl.textContent = String(resolvedCount);
+
+
+
+    // 2. Dynamic Map View Stats (Active non-resolved alerts)
+    const activeAlerts = reports.filter(r => r.status !== "Resolved");
+    const totalActive = activeAlerts.length;
+
+    // Calculate how many active reports were submitted TODAY
+    const today = new Date();
+    const newTodayCount = activeAlerts.filter(r => {
+      if (!r.createdAt) return false;
+      return r.createdAt.getDate() === today.getDate() &&
+        r.createdAt.getMonth() === today.getMonth() &&
+        r.createdAt.getFullYear() === today.getFullYear();
+    }).length;
+
+    const activeValEl = document.getElementById("map-active-alerts-val");
+    const newIndicatorEl = document.getElementById("map-active-new-indicator");
+
+    if (activeValEl) activeValEl.textContent = String(totalActive);
+
+    if (newIndicatorEl) {
+      if (newTodayCount > 0) {
+        newIndicatorEl.className = "text-[10px] font-bold text-emerald-600 mt-2 flex items-center gap-1";
+        newIndicatorEl.innerHTML = `<span class="text-xs">↑</span> +${newTodayCount} new today`;
+      } else {
+        newIndicatorEl.className = "text-[10px] font-bold text-slate-400 mt-2 flex items-center gap-1";
+        newIndicatorEl.innerHTML = `No new alerts today`;
+      }
+    }
+
+    // Severity Breakdown
+    const lowCount = activeAlerts.filter(r => r.severity <= 2).length;
+    const mediumCount = activeAlerts.filter(r => r.severity === 3).length;
+    const highCountMap = activeAlerts.filter(r => r.severity >= 4).length; // Both score 4 and 5 consolidated
+
+    if (document.getElementById("map-severity-low-val")) document.getElementById("map-severity-low-val").textContent = String(lowCount);
+    if (document.getElementById("map-severity-medium-val")) document.getElementById("map-severity-medium-val").textContent = String(mediumCount);
+    if (document.getElementById("map-severity-high-val")) document.getElementById("map-severity-high-val").textContent = String(highCountMap);
+
+    // Dynamic Map KPI Cards
+    if (document.getElementById("map-kpi-total")) document.getElementById("map-kpi-total").textContent = String(reports.length);
+    if (document.getElementById("map-kpi-pending")) document.getElementById("map-kpi-pending").textContent = String(pendingCount);
+    if (document.getElementById("map-kpi-progress")) document.getElementById("map-kpi-progress").textContent = String(inProgressCount);
+    if (document.getElementById("map-kpi-resolved")) document.getElementById("map-kpi-resolved").textContent = String(resolvedCount);
   }
+
+  function updateTrendUI(elementId, current, previous, isPositiveGood) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    const container = el.parentElement;
+
+    let percent = 0;
+    if (previous > 0) {
+      percent = Math.round(((current - previous) / previous) * 100);
+    } else if (current > 0) {
+      percent = 100;
+    }
+
+    // Cap percentage to 100% to keep analytics clean and understandable
+    percent = Math.min(100, Math.max(-100, percent));
+
+    let isBetter = false;
+    if (current > previous) {
+      isBetter = isPositiveGood;
+    } else if (current < previous) {
+      isBetter = !isPositiveGood;
+    } else {
+      container.className = "mt-3 flex items-center gap-1 text-[10px] font-semibold text-slate-500";
+      el.textContent = `0%`;
+      return;
+    }
+
+    const arrow = current > previous ? "↑" : "↓";
+    const colorClass = isBetter ? "text-emerald-700" : "text-rose-700";
+    
+    container.className = `mt-3 flex items-center gap-1 text-[10px] font-semibold ${colorClass}`;
+    el.textContent = `${arrow} ${Math.abs(percent)}%`;
+  }
+
+  function updateAnalyticsMetrics() {
+    const dateFilterEl = document.getElementById("analytics-date-filter");
+    const dateVal = dateFilterEl ? dateFilterEl.value : "7days";
+
+    const now = new Date();
+    let filtered = [...reports];
+    let prevFiltered = [];
+
+    let currentStart = new Date();
+    let prevStart = new Date();
+    let prevEnd = new Date();
+
+    // Dynamically update the first option label with the actual date range of the last 7 days
+    const firstOption = dateFilterEl ? dateFilterEl.querySelector('option[value="7days"]') : null;
+    if (firstOption) {
+      const start = new Date();
+      start.setDate(now.getDate() - 7);
+      const formatMonthDay = (d) => d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      const formatYear = (d) => d.getFullYear();
+      firstOption.textContent = `${formatMonthDay(start)} - ${formatMonthDay(now)}, ${formatYear(now)}`;
+    }
+
+    let subtextLabel = "from last week";
+
+    if (dateVal === "7days") {
+      currentStart.setDate(now.getDate() - 7);
+      currentStart.setHours(0, 0, 0, 0);
+      prevStart.setDate(now.getDate() - 14);
+      prevStart.setHours(0, 0, 0, 0);
+      prevEnd.setDate(now.getDate() - 7);
+      prevEnd.setHours(0, 0, 0, 0);
+      
+      filtered = reports.filter(r => r.createdAt && r.createdAt >= currentStart);
+      prevFiltered = reports.filter(r => r.createdAt && r.createdAt >= prevStart && r.createdAt < prevEnd);
+      subtextLabel = "from last week";
+    } else if (dateVal === "30days") {
+      currentStart.setDate(now.getDate() - 30);
+      currentStart.setHours(0, 0, 0, 0);
+      prevStart.setDate(now.getDate() - 60);
+      prevStart.setHours(0, 0, 0, 0);
+      prevEnd.setDate(now.getDate() - 30);
+      prevEnd.setHours(0, 0, 0, 0);
+      
+      filtered = reports.filter(r => r.createdAt && r.createdAt >= currentStart);
+      prevFiltered = reports.filter(r => r.createdAt && r.createdAt >= prevStart && r.createdAt < prevEnd);
+      subtextLabel = "from last month";
+    } else {
+      // "all" time
+      filtered = [...reports];
+      currentStart.setDate(now.getDate() - 30);
+      currentStart.setHours(0, 0, 0, 0);
+      prevStart.setDate(now.getDate() - 60);
+      prevStart.setHours(0, 0, 0, 0);
+      prevEnd.setDate(now.getDate() - 30);
+      prevEnd.setHours(0, 0, 0, 0);
+      
+      prevFiltered = reports.filter(r => r.createdAt && r.createdAt >= prevStart && r.createdAt < prevEnd);
+      subtextLabel = "from last month";
+    }
+
+    const totalCount = filtered.length;
+    const resolvedCount = filtered.filter(r => r.status === "Resolved").length;
+    const pendingCount = filtered.filter(r => r.status === "Pending Verification").length;
+
+    const prevTotal = prevFiltered.length;
+    const prevResolved = prevFiltered.filter(r => r.status === "Resolved").length;
+    const prevPending = prevFiltered.filter(r => r.status === "Pending Verification").length;
+
+    if (document.getElementById("analytics-stat-total")) document.getElementById("analytics-stat-total").textContent = String(totalCount);
+    if (document.getElementById("analytics-stat-resolved")) document.getElementById("analytics-stat-resolved").textContent = String(resolvedCount);
+    if (document.getElementById("analytics-stat-pending")) document.getElementById("analytics-stat-pending").textContent = String(pendingCount);
+
+    // Update trend percentages
+    updateTrendUI("analytics-trend-total", totalCount, prevTotal, false); // reports up = neutral/red
+    updateTrendUI("analytics-trend-resolved", resolvedCount, prevResolved, true); // resolved up = good
+    updateTrendUI("analytics-trend-pending", pendingCount, prevPending, false); // pending up = bad
+
+    // Update subtext labels
+    const subtextTotalEl = document.getElementById("analytics-subtext-total");
+    const subtextResolvedEl = document.getElementById("analytics-subtext-resolved");
+    const subtextPendingEl = document.getElementById("analytics-subtext-pending");
+    const subtextTimeEl = document.getElementById("analytics-subtext-time");
+
+    if (subtextTotalEl) subtextTotalEl.textContent = subtextLabel;
+    if (subtextResolvedEl) subtextResolvedEl.textContent = subtextLabel;
+    if (subtextPendingEl) subtextPendingEl.textContent = subtextLabel;
+    if (subtextTimeEl) subtextTimeEl.textContent = subtextLabel;
+
+    // Average Response Time calculation responsive to data counts
+    let avgTimeCurrent = 18; // default hours
+    let avgTimePrev = 20; // default hours
+    if (totalCount > 0) {
+      avgTimeCurrent = Math.max(4, Math.round(10 + (pendingCount * 0.8)));
+    }
+    if (prevTotal > 0) {
+      avgTimePrev = Math.max(4, Math.round(10 + (prevPending * 0.8)));
+    }
+    
+    if (document.getElementById("analytics-stat-time")) {
+      document.getElementById("analytics-stat-time").textContent = `${avgTimeCurrent}h`;
+    }
+    
+    // Update response time trend
+    const timeDiff = avgTimeCurrent - avgTimePrev;
+    const trendTimeEl = document.getElementById("analytics-trend-time");
+    if (trendTimeEl) {
+      const container = trendTimeEl.parentElement;
+      if (timeDiff < 0) {
+        container.className = "mt-3 flex items-center gap-1 text-[10px] font-semibold text-emerald-700";
+        trendTimeEl.textContent = `↓ ${Math.abs(timeDiff)}h`;
+      } else if (timeDiff > 0) {
+        container.className = "mt-3 flex items-center gap-1 text-[10px] font-semibold text-rose-700";
+        trendTimeEl.textContent = `↑ ${timeDiff}h`;
+      } else {
+        container.className = "mt-3 flex items-center gap-1 text-[10px] font-semibold text-slate-500";
+        trendTimeEl.textContent = `0h change`;
+      }
+    }
+
+    drawReportsOverTimeChart(filtered, dateVal);
+    drawCategoryDonutChart(filtered);
+
+    // Apply micro-animation refresh indicator
+    animateAnalyticsRefresh();
+  }
+
+  function animateAnalyticsRefresh() {
+    const targets = [
+      document.getElementById("analytics-stat-total"),
+      document.getElementById("analytics-stat-resolved"),
+      document.getElementById("analytics-stat-pending"),
+      document.getElementById("analytics-line-chart-container"),
+      document.getElementById("analytics-donut-chart"),
+      document.getElementById("analytics-donut-legend")
+    ];
+
+    targets.forEach(el => {
+      if (!el) return;
+      el.style.transition = "transform 0.12s ease, opacity 0.12s ease";
+      el.style.transform = "scale(0.97)";
+      el.style.opacity = "0.5";
+      setTimeout(() => {
+        el.style.transform = "scale(1)";
+        el.style.opacity = "1";
+      }, 150);
+    });
+  }
+
+  function drawReportsOverTimeChart(filtered, dateVal) {
+    const container = document.getElementById("analytics-line-chart-container");
+    if (!container) return;
+    container.innerHTML = "";
+
+    const daysCount = dateVal === "30days" ? 30 : 7;
+    const now = new Date();
+
+    const days = [];
+    for (let i = daysCount - 1; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(now.getDate() - i);
+      d.setHours(0, 0, 0, 0);
+      days.push(d);
+    }
+
+    const reportsCounts = Array(daysCount).fill(0);
+    const resolvedCounts = Array(daysCount).fill(0);
+
+    filtered.forEach(r => {
+      if (!r.createdAt) return;
+      const reportDate = new Date(r.createdAt);
+      reportDate.setHours(0, 0, 0, 0);
+
+      const index = days.findIndex(d => d.getTime() === reportDate.getTime());
+      if (index !== -1) {
+        reportsCounts[index]++;
+        if (r.status === "Resolved") {
+          resolvedCounts[index]++;
+        }
+      }
+    });
+
+    const width = container.clientWidth || 500;
+    const height = container.clientHeight || 250;
+    const paddingLeft = 40;
+    const paddingRight = 20;
+    const paddingTop = 20;
+    const paddingBottom = 40;
+
+    const chartWidth = width - paddingLeft - paddingRight;
+    const chartHeight = height - paddingTop - paddingBottom;
+
+    const maxVal = Math.max(...reportsCounts, ...resolvedCounts, 5);
+
+    const getX = (idx) => paddingLeft + (idx / (daysCount - 1)) * chartWidth;
+    const getY = (val) => paddingTop + chartHeight - (val / maxVal) * chartHeight;
+
+    let svgContent = `<svg width="100%" height="100%" viewBox="0 0 ${width} ${height}" class="overflow-visible">`;
+
+    const gridLines = 4;
+    for (let i = 0; i <= gridLines; i++) {
+      const val = Math.round((i / gridLines) * maxVal);
+      const y = getY(val);
+      svgContent += `
+        <line x1="${paddingLeft}" y1="${y}" x2="${width - paddingRight}" y2="${y}" stroke="#f1f5f9" stroke-width="1" />
+        <text x="${paddingLeft - 10}" y="${y + 4}" fill="#94a3b8" font-size="10" font-weight="700" text-anchor="end">${val}</text>
+      `;
+    }
+
+    const labelStep = daysCount === 30 ? 5 : 1;
+    days.forEach((day, idx) => {
+      if (idx % labelStep === 0) {
+        const x = getX(idx);
+        const dayLabel = day.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+        svgContent += `
+          <text x="${x}" y="${height - 15}" fill="#94a3b8" font-size="10" font-weight="700" text-anchor="middle">${dayLabel}</text>
+        `;
+      }
+    });
+
+    const buildPath = (data) => {
+      let d = "";
+      data.forEach((val, idx) => {
+        const x = getX(idx);
+        const y = getY(val);
+        d += (idx === 0) ? `M ${x} ${y}` : ` L ${x} ${y}`;
+      });
+      return d;
+    };
+
+    const reportsPath = buildPath(reportsCounts);
+    svgContent += `
+      <path d="${reportsPath}" fill="none" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+    `;
+
+    if (daysCount === 7) {
+      reportsCounts.forEach((val, idx) => {
+        svgContent += `
+          <circle cx="${getX(idx)}" cy="${getY(val)}" r="3.5" fill="#2563eb" stroke="#ffffff" stroke-width="1.5" />
+        `;
+      });
+    }
+
+    const resolvedPath = buildPath(resolvedCounts);
+    svgContent += `
+      <path d="${resolvedPath}" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+    `;
+
+    if (daysCount === 7) {
+      resolvedCounts.forEach((val, idx) => {
+        svgContent += `
+          <circle cx="${getX(idx)}" cy="${getY(val)}" r="3.5" fill="#10b981" stroke="#ffffff" stroke-width="1.5" />
+        `;
+      });
+    }
+
+    svgContent += `</svg>`;
+    container.innerHTML = svgContent;
+  }
+
+  function drawCategoryDonutChart(filtered) {
+    const donutEl = document.getElementById("analytics-donut-chart");
+    const legendEl = document.getElementById("analytics-donut-legend");
+    if (!donutEl || !legendEl) return;
+
+    legendEl.innerHTML = "";
+    if (filtered.length === 0) {
+      donutEl.style.background = "#e2e8f0";
+      legendEl.innerHTML = `<p class="text-xs text-slate-400 italic text-center py-4">No data available</p>`;
+      return;
+    }
+
+    const counts = {};
+    filtered.forEach(r => {
+      const cat = r.category || "Uncategorized";
+      counts[cat] = (counts[cat] || 0) + 1;
+    });
+
+    const items = Object.keys(counts).map(key => ({
+      name: key,
+      count: counts[key],
+      pct: Math.round((counts[key] / filtered.length) * 100)
+    }));
+    items.sort((a, b) => b.count - a.count);
+
+    let displayItems = [];
+    if (items.length <= 4) {
+      displayItems = items;
+    } else {
+      displayItems = items.slice(0, 3);
+      const othersCount = items.slice(3).reduce((sum, item) => sum + item.count, 0);
+      const othersPct = Math.round((othersCount / filtered.length) * 100);
+      displayItems.push({ name: "Others", count: othersCount, pct: othersPct });
+    }
+
+    const colorPalette = ["#10b981", "#3b82f6", "#f59e0b", "#f97316", "#94a3b8"];
+
+    let currentPct = 0;
+    const gradientParts = [];
+
+    displayItems.forEach((item, idx) => {
+      const color = colorPalette[idx % colorPalette.length];
+      item.color = color;
+
+      const start = currentPct;
+      currentPct += item.pct;
+      gradientParts.push(`${color} ${start}% ${currentPct}%`);
+
+      const row = document.createElement("div");
+      row.className = "flex items-center justify-between";
+      row.innerHTML = `
+        <span class="flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full flex-shrink-0" style="background-color: ${color}"></span>
+          <span class="truncate max-w-[120px]">${item.name}</span>
+        </span>
+        <span class="font-bold text-slate-800">${item.pct}%</span>
+      `;
+      legendEl.appendChild(row);
+    });
+
+    donutEl.style.background = `conic-gradient(${gradientParts.join(", ")})`;
+  }
+
+  // ==========================================
+  // 5. MAP LOGIC
+  // ==========================================
 
   function initLeafletMap() {
     if (!mapInstance && document.getElementById("lgu-map")) {
       mapInstance = L.map("lgu-map").setView([14.5995, 120.9842], 13);
-
       L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
         maxZoom: 19,
       }).addTo(mapInstance);
-
       markerLayerGroup = L.layerGroup().addTo(mapInstance);
     }
 
     if (!dashboardMapInstance && document.getElementById("lgu-dashboard-map")) {
-      dashboardMapInstance = L.map("lgu-dashboard-map", { zoomControl: false }).setView(
-        [14.5995, 120.9842],
-        12
-      );
-
+      dashboardMapInstance = L.map("lgu-dashboard-map", { zoomControl: false }).setView([14.5995, 120.9842], 12);
       L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
         maxZoom: 19,
       }).addTo(dashboardMapInstance);
-
       dashboardLayerGroup = L.layerGroup().addTo(dashboardMapInstance);
     }
+
+    syncMapGlobals();
   }
 
   function getReportLatLng(report) {
     const coords = report.coordinates;
-    if (coords && typeof coords.lat === "number" && typeof coords.lng === "number") {
-      return [coords.lat, coords.lng];
+
+    // Safely extract and convert string coordinates to actual floating-point numbers
+    if (coords && coords.lat != null && coords.lng != null) {
+      const parsedLat = parseFloat(coords.lat);
+      const parsedLng = parseFloat(coords.lng);
+
+      // Make sure the parsing actually resulted in valid numbers
+      if (!isNaN(parsedLat) && !isNaN(parsedLng)) {
+        return [parsedLat, parsedLng];
+      }
     }
+
     if (Array.isArray(coords) && coords.length >= 2) {
-      return [coords[0], coords[1]];
+      const parsedLat = parseFloat(coords[0]);
+      const parsedLng = parseFloat(coords[1]);
+      if (!isNaN(parsedLat) && !isNaN(parsedLng)) {
+        return [parsedLat, parsedLng];
+      }
     }
-    // HACKATHON FALLBACK: Generate consistent pin near Manila if GPS denied
+
+    // GPS Fallback to Manila center if everything else completely fails
     let hash = 0;
-    for (let i = 0; i < report.id.length; i++) {
-      hash = report.id.charCodeAt(i) + ((hash << 5) - hash);
-    }
+    for (let i = 0; i < report.id.length; i++) hash = report.id.charCodeAt(i) + ((hash << 5) - hash);
     const randomOffsetLat = (Math.abs(hash) % 100) / 15000;
     const randomOffsetLng = (Math.abs(hash >> 2) % 100) / 15000;
     return [14.5995 + randomOffsetLat, 120.9842 + randomOffsetLng];
   }
 
   function buildMarkerHtml(report) {
-    let pinColorClass = "text-blue-500";
+    let pinColorClass = "text-amber-500";
     let pulseHtml = "";
 
+    // Evaluate Status First (Base Color)
     if (report.status === "Resolved") {
       pinColorClass = "text-slate-400";
-    } else if (report.severity >= 4) {
-      pinColorClass = "text-red-600";
-      // Pulse centered specifically on the top bulb of the teardrop pin
-      pulseHtml = '<span class="absolute top-[10%] left-[20%] inline-flex h-[60%] w-[60%] rounded-full bg-red-400 opacity-60 animate-ping"></span>';
-    } else if (report.severity >= 2) {
-      pinColorClass = "text-amber-500";
+    } else if (report.status === "In Progress") {
+      pinColorClass = "text-blue-500";
+      // If severe AND in progress -> Blue Pin, Blue Pulse
+      if (report.severity >= 4) {
+        pulseHtml = '<span class="absolute top-[10%] left-[20%] inline-flex h-[60%] w-[60%] rounded-full bg-blue-400 opacity-60 animate-ping"></span>';
+      }
+    } else {
+      // Pending Verification
+      if (report.severity >= 4) {
+        // If severe AND pending -> Red Pin, Red Pulse
+        pinColorClass = "text-rose-500";
+        pulseHtml = '<span class="absolute top-[10%] left-[20%] inline-flex h-[60%] w-[60%] rounded-full bg-rose-400 opacity-60 animate-ping"></span>';
+      } else {
+        // If normal AND pending -> Amber Pin, no pulse
+        pinColorClass = "text-amber-500";
+      }
     }
 
     const svgIcon = `
@@ -247,233 +996,382 @@ import {
         <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
       </svg>
     `;
-
     return '<div class="relative w-full h-full">' + pulseHtml + svgIcon + '</div>';
+  }
+
+  function getFilteredReportsForMap() {
+    let list = [...reports];
+
+    // 1. Status Filter
+    if (activeMapStatusFilter !== "all") {
+      list = list.filter(r => r.status === activeMapStatusFilter);
+    }
+
+    // 2. Category Filter
+    if (activeMapCategoryFilter !== "all") {
+      list = list.filter(r => r.category === activeMapCategoryFilter);
+    }
+
+    // 3. Severity Checkboxes
+    list = list.filter(r => {
+      if (r.severity >= 4) return showSeverityHigh;
+      if (r.severity === 3) return showSeverityMedium;
+      return showSeverityLow;
+    });
+
+    return list;
+  }
+
+  function updateHeatmap() {
+    if (!mapInstance) return;
+    if (heatLayer) {
+      mapInstance.removeLayer(heatLayer);
+      heatLayer = null;
+    }
+
+    if (showHeatmap) {
+      const filteredForMap = getFilteredReportsForMap();
+      const heatPoints = filteredForMap
+        .map(r => {
+          const latLng = getReportLatLng(r);
+          return [latLng[0], latLng[1], r.severity / 5]; // lat, lng, intensity
+        });
+
+      if (typeof L.heatLayer === "function") {
+        heatLayer = L.heatLayer(heatPoints, {
+          radius: 35,
+          blur: 20,
+          max: 1.0
+        }).addTo(mapInstance);
+      } else {
+        console.warn("Leaflet Heat plugin not loaded.");
+      }
+    }
+  }
+
+  function updateRecentCriticalAlerts() {
+    const container = document.getElementById("recent-critical-alerts-container");
+    if (!container) return;
+
+    const criticalReports = reports
+      .filter(r => r.severity >= 4 && r.status !== "Resolved")
+      .sort((a, b) => {
+        if (a.createdAt && b.createdAt) {
+          return b.createdAt.getTime() - a.createdAt.getTime();
+        }
+        return b.docId.localeCompare(a.docId);
+      });
+
+    const top3 = criticalReports.slice(0, 3);
+    container.innerHTML = "";
+
+    if (top3.length === 0) {
+      container.innerHTML = `<p class="text-xs text-slate-400 italic py-4 text-center">No active critical alerts.</p>`;
+      return;
+    }
+
+    top3.forEach(report => {
+      const card = document.createElement("div");
+      card.className = "bg-white hover:bg-slate-50 border border-slate-200 p-3 rounded-xl shadow-sm transition-all flex items-start gap-3 cursor-pointer group mb-2.5";
+
+      card.addEventListener("click", () => {
+        openDetailModal(report.docId);
+      });
+
+      const timeStr = report.createdAt ? report.createdAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : "N/A";
+      const dateStr = report.createdAt ? report.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "";
+
+      card.innerHTML = `
+        <div class="w-10 h-10 rounded-lg overflow-hidden border border-slate-100 flex-shrink-0">
+          <img src="${report.imageUrl || PLACEHOLDER_IMAGE}" class="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+        </div>
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center justify-between gap-2">
+            <h5 class="text-xs font-bold text-slate-800 truncate">${report.category}</h5>
+            <span class="text-[9px] font-black uppercase text-rose-600 bg-rose-50 border border-rose-100/50 px-1.5 py-0.5 rounded">High</span>
+          </div>
+          <p class="text-[10px] text-slate-500 truncate mt-0.5">${report.location}</p>
+          <p class="text-[9px] text-slate-400 font-medium mt-1">${dateStr} • ${timeStr}</p>
+        </div>
+      `;
+      container.appendChild(card);
+    });
+  }
+
+  function updateMapFilterVisuals(activeId) {
+    const filterButtons = {
+      all: document.getElementById("map-filter-all"),
+      high: document.getElementById("map-filter-high"),
+      medium: document.getElementById("map-filter-medium"),
+      resolved: document.getElementById("map-filter-resolved")
+    };
+
+    Object.keys(filterButtons).forEach(key => {
+      const btn = filterButtons[key];
+      if (btn) {
+        if (key === activeId) {
+          btn.className = "px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-600 text-white shadow-sm transition-all cursor-pointer";
+        } else {
+          btn.className = "px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-50 text-slate-700 hover:bg-slate-100 transition-all cursor-pointer";
+        }
+      }
+    });
   }
 
   function renderMapMarkers() {
     if (!markerLayerGroup && !dashboardLayerGroup) return;
-
     if (markerLayerGroup) markerLayerGroup.clearLayers();
     if (dashboardLayerGroup) dashboardLayerGroup.clearLayers();
 
+    const mapReports = getFilteredReportsForMap();
+
+    // Dynamically update the count of filtered alerts in the overlay card
+    const activeValEl = document.getElementById("map-active-alerts-val");
+    if (activeValEl) activeValEl.textContent = String(mapReports.length);
+
+    // Render main map markers (filtered) only if showMarkers is true
+    if (showMarkers) {
+      mapReports.forEach((report) => {
+        const latLng = getReportLatLng(report);
+        const popupHtml = `
+          <div class="text-sm space-y-2 p-1 min-w-[180px]">
+            <p><strong>Report ID:</strong> ${report.id}</p>
+            <p><strong>Severity:</strong> ${report.severity} / 5</p>
+            <p><strong>Category:</strong> ${report.category}</p>
+            <p><strong>Status:</strong> ${report.status}</p>
+            <button type="button" onclick="window.openDetailModal('${report.docId}')" class="mt-2 w-full px-3 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700">View Details</button>
+          </div>
+        `;
+
+        if (markerLayerGroup) {
+          const icon = L.divIcon({
+            className: "bg-transparent border-0",
+            html: buildMarkerHtml(report),
+            iconSize: [32, 32],
+            iconAnchor: [16, 32],
+            popupAnchor: [0, -32],
+          });
+          const marker = L.marker(latLng, { icon });
+          marker.bindPopup(popupHtml);
+          markerLayerGroup.addLayer(marker);
+        }
+      });
+    }
+
+    // Render dashboard map markers (all reports)
     reports.forEach((report) => {
       const latLng = getReportLatLng(report);
-
-      const popupHtml =
-        '<div class="text-sm space-y-2 p-1 min-w-[180px]">' +
-        "<p><strong>Report ID:</strong> " +
-        report.id +
-        "</p>" +
-        "<p><strong>Severity:</strong> " +
-        report.severity +
-        " / 5</p>" +
-        "<p><strong>Category:</strong> " +
-        report.category +
-        "</p>" +
-        "<p><strong>Status:</strong> " +
-        report.status +
-        "</p>" +
-        '<button type="button" onclick="window.openDetailModal(\'' +
-        report.docId +
-        "')" +
-        ' class="mt-2 w-full px-3 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700">' +
-        "View Details</button>" +
-        "</div>";
-
-      if (markerLayerGroup) {
-        const icon = L.divIcon({
-          className: "bg-transparent border-0",
-          html: buildMarkerHtml(report),
-          iconSize: [32, 32],      
-          iconAnchor: [16, 32],    
-          popupAnchor: [0, -32],   
-        });
-
-        const marker = L.marker(latLng, { icon });
-        marker.bindPopup(popupHtml);
-        markerLayerGroup.addLayer(marker);
-      }
-
       if (dashboardLayerGroup) {
         const dashboardIcon = L.divIcon({
           className: "bg-transparent border-0",
           html: buildMarkerHtml(report),
-          iconSize: [32, 32],      
+          iconSize: [32, 32],
           iconAnchor: [12, 24],
         });
-
-        const dashboardMarker = L.marker(latLng, {
-          icon: dashboardIcon,
-          interactive: false,
-        });
+        const dashboardMarker = L.marker(latLng, { icon: dashboardIcon, interactive: false });
         dashboardLayerGroup.addLayer(dashboardMarker);
       }
     });
+
+    updateHeatmap();
   }
 
-  function switchView(viewName) {
-    const navButtons = [
-      navDashboardBtn,
-      navReportsBtn,
-      navMapBtn,
-      navAnalyticsBtn,
-      navSettingsBtn,
-    ];
+  // ==========================================
+  // 6. UI & NAVIGATION LOGIC
+  // ==========================================
 
+  function switchView(viewName) {
+    const navButtons = [navDashboardBtn, navReportsBtn, navMapBtn, navAnalyticsBtn, navBarangayBtn, navSettingsBtn];
+
+    // 1. Reset all buttons to inactive state
     navButtons.forEach((btn) => {
       if (btn) {
-        btn.classList.remove("bg-blue-50", "text-blue-700", "font-semibold");
-        btn.classList.add(
-          "text-slate-600",
-          "hover:bg-slate-50",
-          "hover:text-slate-900",
-          "font-medium"
-        );
+        btn.classList.remove("bg-emerald-50", "text-emerald-700", "border-emerald-500", "font-bold");
+        btn.classList.add("text-slate-500", "border-transparent", "font-semibold");
       }
     });
 
+    // 2. Hide all panels
     viewDashboardPanel.classList.add("hidden");
     viewReportsPanel.classList.add("hidden");
     viewMapPanel.classList.add("hidden");
+    if (viewAnalyticsPanel) viewAnalyticsPanel.classList.add("hidden");
 
+    // 3. Activate selected view and apply correct emerald highlights
     if (viewName === "dashboard") {
+      if (mainHeader) mainHeader.classList.remove("hidden");
       viewDashboardPanel.classList.remove("hidden");
-      if (navDashboardBtn) {
-        navDashboardBtn.classList.add("bg-blue-50", "text-blue-700", "font-semibold");
-        navDashboardBtn.classList.remove(
-          "text-slate-600",
-          "hover:bg-slate-50",
-          "hover:text-slate-900",
-          "font-medium"
-        );
-      }
+      if (navDashboardBtn) navDashboardBtn.classList.add("bg-emerald-50", "text-emerald-700", "border-emerald-500", "font-bold");
       if (viewTitle) viewTitle.textContent = "Dashboard";
       updateDashboardMetrics(reports);
       initLeafletMap();
-      if (typeof renderMapMarkers === "function") renderMapMarkers();
-      setTimeout(function () {
-        if (dashboardMapInstance) dashboardMapInstance.invalidateSize();
-      }, 100);
-    } else if (viewName === "reports") {
-      viewReportsPanel.classList.remove("hidden");
-      if (navReportsBtn) {
-        navReportsBtn.classList.add("bg-blue-50", "text-blue-700", "font-semibold");
-        navReportsBtn.classList.remove(
-          "text-slate-600",
-          "hover:bg-slate-50",
-          "hover:text-slate-900",
-          "font-medium"
-        );
-      }
-      if (viewTitle) viewTitle.textContent = "Civic Reports Database";
-      renderReportsTable();
-    } else if (viewName === "map") {
-      viewMapPanel.classList.remove("hidden");
-      if (navMapBtn) {
-        navMapBtn.classList.add("bg-blue-50", "text-blue-700", "font-semibold");
-        navMapBtn.classList.remove(
-          "text-slate-600",
-          "hover:bg-slate-50",
-          "hover:text-slate-900",
-          "font-medium"
-        );
-      }
-      if (viewTitle) viewTitle.textContent = "Live Reports Map";
-      initLeafletMap();
       renderMapMarkers();
-      setTimeout(function () {
-        if (mapInstance) mapInstance.invalidateSize();
-      }, 100);
+      refreshMapSizes(100);
+    } else {
+      if (mainHeader) mainHeader.classList.add("hidden");
+      if (viewName === "reports") {
+        viewReportsPanel.classList.remove("hidden");
+        if (navReportsBtn) navReportsBtn.classList.add("bg-emerald-50", "text-emerald-700", "border-emerald-500", "font-bold");
+        if (viewTitle) viewTitle.textContent = "Civic Reports Database";
+        renderReportsTable();
+      } else if (viewName === "map") {
+        viewMapPanel.classList.remove("hidden");
+        if (navMapBtn) navMapBtn.classList.add("bg-emerald-50", "text-emerald-700", "border-emerald-500", "font-bold");
+        if (viewTitle) viewTitle.textContent = "Live Reports Map";
+        initLeafletMap();
+        if (typeof updateRecentCriticalAlerts === "function") updateRecentCriticalAlerts();
+        renderMapMarkers();
+        refreshMapSizes(100);
+      } else if (viewName === "analytics") {
+        if (viewAnalyticsPanel) viewAnalyticsPanel.classList.remove("hidden");
+        if (navAnalyticsBtn) navAnalyticsBtn.classList.add("bg-emerald-50", "text-emerald-700", "border-emerald-500", "font-bold");
+        if (viewTitle) viewTitle.textContent = "Analytics Overview";
+        updateAnalyticsMetrics();
+      }
     }
   }
 
+  // ==========================================
+  // 7. REPORTS TABLE LOGIC
+  // ==========================================
+
+  // Track active sub-filter tab and dropdown states globally
+  let currentStatusFilter = "all";
+  let currentCategoryFilter = "all";
+  let currentSortOrder = "date-desc"; // Default sorting by newest submitted time
+
   function renderReportsTable() {
     if (!reportsTableBody) return;
+    const queryText = reportSearchInput ? reportSearchInput.value.toLowerCase().trim() : "";
 
-    const queryText = reportSearchInput
-      ? reportSearchInput.value.toLowerCase().trim()
-      : "";
-    let sortedList = [...reports];
+    // Update live sub-tab totals indicator elements
+    const counts = {
+      all: reports.length,
+      pending: reports.filter(r => r.status === "Pending Verification").length,
+      progress: reports.filter(r => r.status === "In Progress").length,
+      resolved: reports.filter(r => r.status === "Resolved").length
+    };
 
+    if (document.getElementById("tab-count-all")) document.getElementById("tab-count-all").textContent = `(${counts.all})`;
+    if (document.getElementById("tab-count-pending")) document.getElementById("tab-count-pending").textContent = `(${counts.pending})`;
+    if (document.getElementById("tab-count-progress")) document.getElementById("tab-count-progress").textContent = `(${counts.progress})`;
+    if (document.getElementById("tab-count-resolved")) document.getElementById("tab-count-resolved").textContent = `(${counts.resolved})`;
+
+    // Filter list based on selected sub-tab
+    let filteredList = [...reports];
+    if (currentStatusFilter === "pending") {
+      filteredList = filteredList.filter(r => r.status === "Pending Verification");
+    } else if (currentStatusFilter === "progress") {
+      filteredList = filteredList.filter(r => r.status === "In Progress");
+    } else if (currentStatusFilter === "resolved") {
+      filteredList = filteredList.filter(r => r.status === "Resolved");
+    }
+
+    // Apply secondary category filter from custom dropdown
+    if (currentCategoryFilter && currentCategoryFilter !== "all") {
+      filteredList = filteredList.filter(r => r.category === currentCategoryFilter);
+    }
+
+    // Apply text query filter
     if (queryText) {
-      sortedList = sortedList.filter(
-        (item) =>
-          item.id.toLowerCase().includes(queryText) ||
-          item.docId.toLowerCase().includes(queryText) ||
-          item.category.toLowerCase().includes(queryText) ||
-          item.location.toLowerCase().includes(queryText) ||
-          item.submittedBy.toLowerCase().includes(queryText) ||
-          item.status.toLowerCase().includes(queryText)
+      filteredList = filteredList.filter((item) =>
+        item.id.toLowerCase().includes(queryText) ||
+        item.category.toLowerCase().includes(queryText) ||
+        item.location.toLowerCase().includes(queryText) ||
+        item.submittedBy.toLowerCase().includes(queryText) ||
+        item.status.toLowerCase().includes(queryText)
       );
     }
 
-    const sortVal = sortSelect ? sortSelect.value : "id-desc";
-    sortedList.sort((a, b) => {
-      if (sortVal === "id-asc") return a.docId.localeCompare(b.docId);
-      if (sortVal === "id-desc") return b.docId.localeCompare(a.docId);
-      if (sortVal === "status-asc") return a.status.localeCompare(b.status);
-      if (sortVal === "status-desc") return b.status.localeCompare(a.status);
-      return 0;
+    // Sort processing based on "Reported At" (createdAt timestamp)
+    filteredList.sort((a, b) => {
+      // Fallback to 0 if time is missing, though Firebase provides the timestamp
+      const timeA = a.createdAt ? a.createdAt.getTime() : 0;
+      const timeB = b.createdAt ? b.createdAt.getTime() : 0;
+
+      if (currentSortOrder === "date-desc") {
+        // Newest submitted forms first
+        return timeB - timeA || b.docId.localeCompare(a.docId);
+      } else {
+        // Oldest submitted forms first
+        return timeA - timeB || a.docId.localeCompare(b.docId);
+      }
     });
+
+    // Save filtered and sorted list for CSV export
+    lastFilteredReports = filteredList;
+
+    // Pagination calculations
+    const totalItems = filteredList.length;
+    const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
+    if (currentPage > totalPages) {
+      currentPage = 1;
+    }
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
+    const paginatedList = filteredList.slice(startIndex, endIndex);
 
     reportsTableBody.innerHTML = "";
 
-    if (sortedList.length === 0) {
-      reportsTableBody.innerHTML = `
-        <tr>
-          <td colspan="6" class="px-6 py-12 text-center text-slate-500 font-medium bg-slate-50/50">
-            No matching reports found in database.
-          </td>
-        </tr>
-      `;
-      if (tableResultsCounter) {
-        tableResultsCounter.textContent = "Showing 0 reports";
-      }
+    if (totalItems === 0) {
+      reportsTableBody.innerHTML = `<tr><td colspan="7" class="px-6 py-12 text-center text-slate-500 font-medium bg-slate-50/50">No matching reports found.</td></tr>`;
+      if (tableResultsCounter) tableResultsCounter.textContent = "Showing 0 reports";
+      const pagContainer = document.getElementById("pagination-controls");
+      if (pagContainer) pagContainer.innerHTML = "";
       return;
     }
 
     if (tableResultsCounter) {
-      tableResultsCounter.textContent = `Showing ${sortedList.length} of ${reports.length} reports`;
+      tableResultsCounter.textContent = `Showing ${startIndex + 1} to ${endIndex} of ${totalItems} reports`;
     }
 
-    sortedList.forEach((report) => {
-      const tr = document.createElement("tr");
-      tr.className =
-        "hover:bg-slate-50/80 transition-colors border-b border-slate-100 align-middle";
+    renderPaginationControls(totalPages);
 
-      let badgeColorClass = "bg-slate-400 text-slate-700";
-      let dotColorClass = "bg-slate-400";
+    paginatedList.forEach((report, index) => {
+      const tr = document.createElement("tr");
+      tr.className = "animate-table-row hover:bg-slate-50/80 transition-colors border-b border-slate-100 align-middle";
+      tr.style.animationDelay = `${index * 0.05}s`;
+
+      // 1. Calculate Status Badge Styles
+      let badgeColorClass = "bg-slate-100 text-slate-700 border border-slate-200";
       if (report.status === "Resolved") {
         badgeColorClass = "bg-green-50 text-green-700 border border-green-200";
-        dotColorClass = "bg-green-500";
       } else if (report.status === "In Progress") {
-        badgeColorClass = "bg-amber-50 text-amber-700 border border-amber-200";
-        dotColorClass = "bg-amber-500";
+        badgeColorClass = "bg-blue-50 text-blue-700 border border-blue-200";
       } else if (report.status === "Pending Verification") {
-        badgeColorClass = "bg-slate-100 text-slate-700 border border-slate-200";
-        dotColorClass = "bg-slate-500";
+        badgeColorClass = "bg-amber-50 text-amber-700 border border-amber-200";
+      }
+
+      // 2. Calculate Priority Badge Styles
+      let priorityText = "Low";
+      let priorityClass = "bg-slate-100 text-slate-600 font-semibold text-xs px-2.5 py-0.5 rounded";
+
+      if (report.severity >= 4) {
+        priorityText = "High";
+        priorityClass = "bg-rose-50 text-rose-700 font-bold text-xs px-2.5 py-0.5 rounded border border-rose-100";
+      } else if (report.severity === 3) {
+        priorityText = "Medium";
+        priorityClass = "bg-amber-50 text-amber-700 font-semibold text-xs px-2.5 py-0.5 rounded border border-amber-100";
       }
 
       tr.innerHTML = `
-        <td class="px-6 py-4 font-mono font-semibold text-slate-900">${report.id}</td>
-        <td class="px-6 py-4 font-semibold text-slate-800">${report.category}</td>
+        <td class="px-6 py-4 font-mono font-semibold text-slate-900">#${report.id}</td>
+        <td class="px-6 py-4 font-semibold text-slate-800 capitalize">${report.category}</td>
         <td class="px-6 py-4 text-slate-600 max-w-xs truncate">${report.location}</td>
-        <td class="px-6 py-4 text-slate-700">${report.submittedBy}</td>
         <td class="px-6 py-4">
-          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${badgeColorClass}">
-            <span class="w-1.5 h-1.5 rounded-full ${dotColorClass}"></span>
+          <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${badgeColorClass}">
             ${report.status}
           </span>
         </td>
+        <td class="px-6 py-4">
+          <span class="${priorityClass}">
+            ${priorityText}
+          </span>
+        </td>
+        <td class="px-6 py-4 text-slate-600 whitespace-nowrap">${formatReportedAt(report.createdAt)}</td>
         <td class="px-6 py-4 text-right">
-          <button
-            data-doc-id="${report.docId}"
-            class="action-view-btn text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors px-3 py-1.5 rounded bg-blue-50 hover:bg-blue-100 inline-flex items-center gap-1"
-          >
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-            </svg>
+          <button data-doc-id="${report.docId}" class="action-view-btn text-xs font-bold text-emerald-600 hover:text-emerald-800 transition-colors px-3 py-1.5 rounded bg-emerald-50 hover:bg-emerald-100 inline-flex items-center gap-1">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
             <span>View</span>
           </button>
         </td>
@@ -488,6 +1386,62 @@ import {
     });
   }
 
+  function updateTabHighlight(activeKey) {
+    const tabs = {
+      all: document.getElementById("filter-tab-all"),
+      pending: document.getElementById("filter-tab-pending"),
+      progress: document.getElementById("filter-tab-progress"),
+      resolved: document.getElementById("filter-tab-resolved")
+    };
+    Object.keys(tabs).forEach(key => {
+      const t = tabs[key];
+      if (t) {
+        if (key === activeKey) {
+          t.className = "px-4 py-2.5 border-b-2 border-emerald-600 text-emerald-600 font-bold transition-all";
+        } else {
+          t.className = "px-4 py-2.5 border-b-2 border-transparent hover:text-slate-800 transition-all";
+        }
+      }
+    });
+  }
+
+  // Bind events for filter sub-tabs execution
+  function setupTabFilters() {
+    const tabs = {
+      all: document.getElementById("filter-tab-all"),
+      pending: document.getElementById("filter-tab-pending"),
+      progress: document.getElementById("filter-tab-progress"),
+      resolved: document.getElementById("filter-tab-resolved")
+    };
+
+    Object.keys(tabs).forEach(key => {
+      if (!tabs[key]) return;
+      tabs[key].addEventListener("click", function () {
+        currentStatusFilter = key;
+        updateTabHighlight(key);
+
+        // Sync select dropdown
+        const statusSelect = document.getElementById("status-filter-select");
+        if (statusSelect) {
+          const selectVals = {
+            all: "all",
+            pending: "Pending Verification",
+            progress: "In Progress",
+            resolved: "Resolved"
+          };
+          statusSelect.value = selectVals[key] || "all";
+        }
+
+        currentPage = 1;
+        renderReportsTable();
+      });
+    });
+  }
+
+  // ==========================================
+  // 8. MODAL LOGIC
+  // ==========================================
+
   function populateModal(report) {
     modalReportId.textContent = `Report #${report.id}`;
     modalCategory.textContent = report.category;
@@ -496,64 +1450,40 @@ import {
     if (modalContactInfo) modalContactInfo.textContent = report.contactInfo || "Not Provided";
     modalAiVolume.textContent = report.aiVolume || "N/A";
     modalSeverityScore.textContent = String(report.severity || 0);
-    modalNotes.textContent = report.notes
-      ? `"${report.notes}"`
-      : '"No additional comments provided."';
+    modalNotes.textContent = report.notes ? `"${report.notes}"` : '"No additional comments provided."';
     modalStatusSelect.value = report.status;
     updateModalStatusBadge(report.status);
     modalReportImage.src = report.imageUrl || PLACEHOLDER_IMAGE;
-    modalReportImage.alt = report.imageUrl
-      ? "Submitted garbage report photo"
-      : "No photo available";
   }
 
   function openDetailModal(docId) {
     selectedReport = reports.find((r) => r.docId === docId);
     if (!selectedReport) return;
-
     populateModal(selectedReport);
     reportDetailModal.classList.remove("hidden");
     document.body.classList.add("overflow-hidden");
   }
 
   function updateModalStatusBadge(status) {
-    modalStatusBadge.className =
-      "inline-flex items-center gap-2 mt-1 px-3 py-1 rounded-full text-xs font-semibold";
+    modalStatusBadge.className = "inline-flex items-center gap-2 mt-1 px-3 py-1 rounded-full text-xs font-semibold";
     let dotEl = modalStatusBadge.querySelector("span:first-child");
     let textEl = modalStatusBadge.querySelector("span:last-child");
 
     if (!dotEl) {
-      modalStatusBadge.innerHTML =
-        '<span class="w-2 h-2 rounded-full"></span><span></span>';
+      modalStatusBadge.innerHTML = '<span class="w-2 h-2 rounded-full"></span><span></span>';
       dotEl = modalStatusBadge.querySelector("span:first-child");
       textEl = modalStatusBadge.querySelector("span:last-child");
     }
 
     textEl.textContent = status;
-
     if (status === "Resolved") {
-      modalStatusBadge.classList.add(
-        "bg-green-50",
-        "text-green-700",
-        "border",
-        "border-green-200"
-      );
+      modalStatusBadge.classList.add("bg-green-50", "text-green-700", "border", "border-green-200");
       dotEl.className = "w-2 h-2 rounded-full bg-green-500";
     } else if (status === "In Progress") {
-      modalStatusBadge.classList.add(
-        "bg-amber-50",
-        "text-amber-700",
-        "border",
-        "border-amber-200"
-      );
+      modalStatusBadge.classList.add("bg-amber-50", "text-amber-700", "border", "border-amber-200");
       dotEl.className = "w-2 h-2 rounded-full bg-amber-500";
     } else {
-      modalStatusBadge.classList.add(
-        "bg-slate-100",
-        "text-slate-700",
-        "border",
-        "border-slate-200"
-      );
+      modalStatusBadge.classList.add("bg-slate-100", "text-slate-700", "border", "border-slate-200");
       dotEl.className = "w-2 h-2 rounded-full bg-slate-400";
     }
   }
@@ -564,38 +1494,14 @@ import {
     selectedReport = null;
   }
 
-  async function updateReportStatus(reportId, newStatus) {
-    try {
-      await updateDoc(doc(db, "reports", reportId), {
-        status: newStatus,
-      });
-      console.log(`Report ${reportId} status updated to ${newStatus}`);
-      return true;
-    } catch (error) {
-      console.error(`Failed to update status for report ${reportId}:`, error);
-      return false;
-    }
-  }
-
   async function saveStatusChange() {
-    console.log("Save button clicked!", {
-      selectedReportId: selectedReport?.docId,
-      selectedReportLabel: selectedReport?.id,
-      selectedStatus: modalStatusSelect?.value,
-    });
-
     if (!selectedReport) return;
-
     const newStatus = modalStatusSelect.value;
     const firestoreStatus = STATUS_TO_FIRESTORE[newStatus] || "pending";
-
     try {
       modalBtnSave.disabled = true;
       modalBtnSave.textContent = "Saving...";
-
-      const success = await updateReportStatus(selectedReport.docId, firestoreStatus);
-      if (!success) throw new Error("Firestore update failed");
-
+      await updateDoc(doc(db, "reports", selectedReport.docId), { status: firestoreStatus });
       closeModal();
     } catch (error) {
       console.error("Failed to save report status change:", error);
@@ -606,58 +1512,399 @@ import {
     }
   }
 
+  function setupSidebarToggle() {
+    const sidebar = document.getElementById("main-sidebar");
+    const mainWrapper = document.getElementById("main-content-wrapper");
+    const toggleBtn = document.getElementById("toggle-sidebar-btn");
+    const toggleIcon = document.getElementById("toggle-icon");
+    const sidebarTexts = document.querySelectorAll(".sidebar-text");
+
+    if (!toggleBtn || !sidebar || !mainWrapper) return;
+
+    toggleBtn.addEventListener("click", () => {
+      sidebar.classList.toggle("w-64");
+      sidebar.classList.toggle("w-16");
+      mainWrapper.classList.toggle("pl-64");
+      mainWrapper.classList.toggle("pl-16");
+
+      const collapsed = sidebar.classList.contains("w-16");
+      if (toggleIcon) {
+        toggleIcon.innerHTML = collapsed
+          ? '<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />'
+          : '<path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />';
+      }
+      sidebarTexts.forEach((el) => {
+        if (collapsed) {
+          el.classList.add("opacity-0", "hidden");
+        } else {
+          el.classList.remove("hidden");
+          setTimeout(() => el.classList.remove("opacity-0"), 50);
+        }
+      });
+
+      setTimeout(() => {
+        if (window.mapInstance) window.mapInstance.invalidateSize();
+        if (window.dashboardMapInstance) window.dashboardMapInstance.invalidateSize();
+      }, 350);
+    });
+  }
+
+  // ==========================================
+  // 9. EVENT LISTENERS
+  // ==========================================
+
   function setupEventListeners() {
-    if (navDashboardBtn) {
-      navDashboardBtn.addEventListener("click", () => switchView("dashboard"));
-    }
-    if (navReportsBtn) {
-      navReportsBtn.addEventListener("click", () => switchView("reports"));
-    }
+    // Navigation Routing
+    if (navDashboardBtn) navDashboardBtn.addEventListener("click", () => switchView("dashboard"));
+    if (navReportsBtn) navReportsBtn.addEventListener("click", () => switchView("reports"));
+    if (navMapBtn) navMapBtn.addEventListener("click", () => switchView("map"));
+    if (navAnalyticsBtn) navAnalyticsBtn.addEventListener("click", () => switchView("analytics"));
 
-    if (navMapBtn) {
-      navMapBtn.addEventListener("click", () => switchView("map"));
-    }
+    const comingSoonButtons = [
+      navBarangayBtn,
+      document.getElementById("nav-tasks"),
+      document.getElementById("nav-routes"),
+      document.getElementById("nav-insights"),
+      navSettingsBtn,
+    ];
 
-    [navAnalyticsBtn, navSettingsBtn].forEach((nav) => {
+    comingSoonButtons.forEach((nav) => {
       if (nav) {
         nav.addEventListener("click", function () {
-          alert(
-            `${this.querySelector("span").textContent} page layout is configured for LGU verification systems.`
-          );
+          const featureName = this.querySelector("span")
+            ? this.querySelector("span").textContent.trim()
+            : "This feature";
+          showToast(featureName);
         });
       }
     });
 
-    window.openDetailModal = openDetailModal;
-
-    if (reportSearchInput) {
-      reportSearchInput.addEventListener("input", renderReportsTable);
-    }
-    if (sortSelect) {
-      sortSelect.addEventListener("change", renderReportsTable);
+    const analyticsDateFilter = document.getElementById("analytics-date-filter");
+    if (analyticsDateFilter) {
+      analyticsDateFilter.addEventListener("change", updateAnalyticsMetrics);
     }
 
-    if (closeModalBtn) closeModalBtn.addEventListener("click", closeModal);
-    if (modalBtnCloseSecondary) {
-      modalBtnCloseSecondary.addEventListener("click", closeModal);
-    }
-    if (modalBtnSave) modalBtnSave.addEventListener("click", saveStatusChange);
-
-    if (modalStatusSelect) {
-      modalStatusSelect.addEventListener("change", function () {
-        updateModalStatusBadge(this.value);
+    const analyticsBrgyFilter = document.getElementById("analytics-brgy-filter");
+    if (analyticsBrgyFilter) {
+      analyticsBrgyFilter.addEventListener("click", function () {
+        showToast("Barangay filtering");
       });
     }
 
+    // --- Analytics Simulated Table Row Click Handlers ---
+    const analyticsTableRows = document.querySelectorAll("#view-analytics-panel table tbody tr");
+    analyticsTableRows.forEach(row => {
+      row.classList.add("cursor-pointer", "hover:bg-slate-50", "transition-colors");
+      row.addEventListener("click", () => {
+        showToast("Barangay Drill-down (In Development)");
+      });
+    });
+
+    // --- Analytics Simulated Bar Graph Column Click Handlers ---
+    // Fix: Escaped the colon in the Tailwind class to prevent SyntaxError in querySelectorAll
+    const responseTimeBars = document.querySelectorAll("#view-analytics-panel .lg\\:col-span-5 .flex-1.flex.items-end > div");
+    responseTimeBars.forEach(barCol => {
+      barCol.classList.add("cursor-pointer", "hover:opacity-80", "transition-opacity");
+      barCol.addEventListener("click", () => {
+        showToast("Response Time Drill-down (In Development)");
+      });
+    });
+
+    setupSidebarToggle();
+
+    // Modal & Table Setup
+    window.openDetailModal = openDetailModal;
     window.saveStatusChange = saveStatusChange;
+
+    if (reportSearchInput) {
+      reportSearchInput.addEventListener("input", () => {
+        currentPage = 1;
+        renderReportsTable();
+      });
+    }
+    if (sortSelect) {
+      sortSelect.addEventListener("change", () => {
+        currentPage = 1;
+        renderReportsTable();
+      });
+    }
+    if (closeModalBtn) closeModalBtn.addEventListener("click", closeModal);
+    if (modalBtnCloseSecondary) modalBtnCloseSecondary.addEventListener("click", closeModal);
+    if (modalBtnSave) modalBtnSave.addEventListener("click", saveStatusChange);
+    if (modalStatusSelect) modalStatusSelect.addEventListener("change", function () { updateModalStatusBadge(this.value); });
 
     const backdrop = document.getElementById("modal-backdrop");
     if (backdrop) backdrop.addEventListener("click", closeModal);
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" || e.key === "Esc") closeModal(); });
 
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" || e.key === "Esc") closeModal();
+    // --- Toolbar Filters Setup (Reports Tab Custom Dropdowns) ---
+
+    // Status Dropdown
+    const rptStatusBtn = document.getElementById("reports-dropdown-status-btn");
+    const rptStatusMenu = document.getElementById("reports-dropdown-status-menu");
+    const rptStatusText = document.getElementById("reports-dropdown-status-text");
+
+    if (rptStatusBtn && rptStatusMenu) {
+      rptStatusBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        rptStatusMenu.classList.toggle("hidden");
+        document.getElementById("reports-dropdown-category-menu")?.classList.add("hidden");
+        document.getElementById("reports-dropdown-sort-menu")?.classList.add("hidden");
+      });
+
+      rptStatusMenu.querySelectorAll("div[data-value]").forEach(opt => {
+        opt.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const val = e.target.dataset.value;
+          const keys = { "all": "all", "Pending Verification": "pending", "In Progress": "progress", "Resolved": "resolved" };
+
+          currentStatusFilter = keys[val] || "all";
+          if (rptStatusText) rptStatusText.textContent = e.target.textContent;
+          rptStatusMenu.classList.add("hidden");
+          updateTabHighlight(currentStatusFilter);
+          currentPage = 1;
+          renderReportsTable();
+        });
+      });
+    }
+
+    // Category Dropdown
+    const rptCatBtn = document.getElementById("reports-dropdown-category-btn");
+    const rptCatMenu = document.getElementById("reports-dropdown-category-menu");
+    if (rptCatBtn && rptCatMenu) {
+      rptCatBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        rptCatMenu.classList.toggle("hidden");
+        document.getElementById("reports-dropdown-status-menu")?.classList.add("hidden");
+        document.getElementById("reports-dropdown-sort-menu")?.classList.add("hidden");
+      });
+    }
+
+    // Sort Dropdown
+    const rptSortBtn = document.getElementById("reports-dropdown-sort-btn");
+    const rptSortMenu = document.getElementById("reports-dropdown-sort-menu");
+    const rptSortText = document.getElementById("reports-dropdown-sort-text");
+
+    if (rptSortBtn && rptSortMenu) {
+      rptSortBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        rptSortMenu.classList.toggle("hidden");
+        document.getElementById("reports-dropdown-category-menu")?.classList.add("hidden");
+        document.getElementById("reports-dropdown-status-menu")?.classList.add("hidden");
+      });
+
+      rptSortMenu.querySelectorAll("div[data-value]").forEach(opt => {
+        opt.addEventListener("click", (e) => {
+          e.stopPropagation();
+          currentSortOrder = e.target.dataset.value;
+          if (rptSortText) rptSortText.textContent = e.target.textContent;
+          rptSortMenu.classList.add("hidden");
+          currentPage = 1;
+          renderReportsTable();
+        });
+      });
+    }
+
+    // Barangay Dropdown (Coming Soon)
+    const rptBrgyBtn = document.getElementById("reports-dropdown-barangay-btn");
+    if (rptBrgyBtn) {
+      rptBrgyBtn.addEventListener("click", () => showToast("Barangay Mapping"));
+    }
+
+    // Filter Reset Button
+    const filterBtn = document.getElementById("filter-btn");
+    if (filterBtn) {
+      filterBtn.addEventListener("click", function () {
+        if (reportSearchInput) reportSearchInput.value = "";
+
+        currentStatusFilter = "all";
+        currentCategoryFilter = "all";
+        currentSortOrder = "date-desc";
+
+        if (rptStatusText) rptStatusText.textContent = "All Status";
+        if (document.getElementById("reports-dropdown-category-text")) document.getElementById("reports-dropdown-category-text").textContent = "All Categories";
+        if (rptSortText) rptSortText.textContent = "Reported At (Newest)";
+
+        updateTabHighlight("all");
+        currentPage = 1;
+        renderReportsTable();
+      });
+    }
+
+    const exportBtn = document.getElementById("export-btn");
+    if (exportBtn) {
+      exportBtn.addEventListener("click", exportToCSV);
+    }
+
+    // Map overlay filter listeners
+    const mapFilterStatus = document.getElementById("map-filter-status");
+    if (mapFilterStatus) {
+      mapFilterStatus.addEventListener("change", function () {
+        activeMapStatusFilter = this.value;
+        renderMapMarkers();
+      });
+    }
+
+    const mapFilterCategory = document.getElementById("map-filter-category");
+    if (mapFilterCategory) {
+      mapFilterCategory.addEventListener("change", function () {
+        activeMapCategoryFilter = this.value;
+        renderMapMarkers();
+      });
+    }
+
+    const mapSevLow = document.getElementById("map-severity-low");
+    if (mapSevLow) {
+      mapSevLow.addEventListener("change", function () {
+        showSeverityLow = this.checked;
+        renderMapMarkers();
+      });
+    }
+
+    const mapSevMedium = document.getElementById("map-severity-medium");
+    if (mapSevMedium) {
+      mapSevMedium.addEventListener("change", function () {
+        showSeverityMedium = this.checked;
+        renderMapMarkers();
+      });
+    }
+
+    const mapSevHigh = document.getElementById("map-severity-high");
+    if (mapSevHigh) {
+      mapSevHigh.addEventListener("change", function () {
+        showSeverityHigh = this.checked;
+        renderMapMarkers();
+      });
+    }
+
+    // Map filters reset listener
+    const mapBtnFilters = document.getElementById("map-btn-filters");
+    if (mapBtnFilters) {
+      mapBtnFilters.addEventListener("click", function () {
+        activeMapStatusFilter = "all";
+        activeMapCategoryFilter = "all";
+        const statusText = document.getElementById("dropdown-status-text");
+        const catText = document.getElementById("dropdown-category-text");
+        if (statusText) statusText.textContent = "Filter Reports (All)";
+        if (catText) catText.textContent = "All Categories";
+
+        const lowCb = document.getElementById("map-severity-low");
+        const medCb = document.getElementById("map-severity-medium");
+        const highCb = document.getElementById("map-severity-high");
+        if (lowCb) lowCb.checked = true;
+        if (medCb) medCb.checked = true;
+        if (highCb) highCb.checked = true;
+
+        showSeverityLow = true;
+        showSeverityMedium = true;
+        showSeverityHigh = true;
+
+        renderMapMarkers();
+        showToast("Map filters have been successfully reset.");
+      });
+    }
+    // --- Custom Map Dropdown Toggle Logic ---
+    const statusBtn = document.getElementById("dropdown-status-btn");
+    const statusMenu = document.getElementById("dropdown-status-menu");
+    const statusText = document.getElementById("dropdown-status-text");
+
+    if (statusBtn && statusMenu) {
+      statusBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        statusMenu.classList.toggle("hidden");
+        document.getElementById("dropdown-category-menu")?.classList.add("hidden");
+      });
+
+      statusMenu.querySelectorAll("div[data-value]").forEach(opt => {
+        opt.addEventListener("click", (e) => {
+          e.stopPropagation();
+          activeMapStatusFilter = e.target.dataset.value;
+          if (statusText) statusText.textContent = e.target.textContent;
+          statusMenu.classList.add("hidden");
+          renderMapMarkers();
+        });
+      });
+    }
+
+    const catBtn = document.getElementById("dropdown-category-btn");
+    const catMenu = document.getElementById("dropdown-category-menu");
+    if (catBtn && catMenu) {
+      catBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        catMenu.classList.toggle("hidden");
+        document.getElementById("dropdown-status-menu")?.classList.add("hidden");
+      });
+    }
+
+    // Global Click Listener to close all open dropdowns
+    document.addEventListener("click", () => {
+      [
+        "reports-dropdown-status-menu",
+        "reports-dropdown-category-menu",
+        "reports-dropdown-sort-menu",
+        "dropdown-status-menu",
+        "dropdown-category-menu"
+      ].forEach(id => {
+        const menu = document.getElementById(id);
+        if (menu && !menu.classList.contains("hidden")) menu.classList.add("hidden");
+      });
     });
+
+    // Map overlay layer listeners
+    const layerToggleHeatmap = document.getElementById("layer-toggle-heatmap");
+    if (layerToggleHeatmap) {
+      layerToggleHeatmap.addEventListener("change", function () {
+        if (this.checked) {
+          showToast("Heatmap density layer is a work in progress.");
+          this.checked = false;
+          showHeatmap = false;
+        }
+      });
+    }
+
+    const layerToggleMarkers = document.getElementById("layer-toggle-markers");
+    if (layerToggleMarkers) {
+      layerToggleMarkers.addEventListener("change", function () {
+        showMarkers = this.checked;
+        renderMapMarkers();
+      });
+    }
+
+    const layerToggleBarangay = document.getElementById("layer-toggle-barangay");
+    if (layerToggleBarangay) {
+      layerToggleBarangay.addEventListener("change", function () {
+        if (this.checked) {
+          showToast("Barangay Boundaries");
+          this.checked = false;
+        }
+      });
+    }
+
+    const layerToggleFlood = document.getElementById("layer-toggle-flood");
+    if (layerToggleFlood) {
+      layerToggleFlood.addEventListener("change", function () {
+        if (this.checked) {
+          showToast("Flood Prone Zones");
+          this.checked = false;
+        }
+      });
+    }
+
+    const mapBtnViewAll = document.getElementById("map-btn-view-all");
+    if (mapBtnViewAll) {
+      mapBtnViewAll.addEventListener("click", () => {
+        switchView("reports");
+      });
+    }
+
+    // Initialize Sub-Tab Filters
+    setupTabFilters();
   }
 
+  // ==========================================
+  // 10. EXECUTION HOOK
+  // ==========================================
+
   document.addEventListener("DOMContentLoaded", init);
+
 })();

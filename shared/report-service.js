@@ -21,7 +21,7 @@ function uniqueReportFilename(imageFile) {
 /**
  * Uploads a trash report image and persists metadata to Firestore.
  *
- * @param {object} reportData - { wasteType, volumeEstimate, location, contactInfo, notes, severityScore }
+ * @param {object} reportData - { wasteType, volumeEstimate, location, coordinates, contactInfo, reporterName, notes, severityScore }
  * @param {File} imageFile - Raw image file from a file input
  * @returns {Promise<string>} Firestore document ID
  */
@@ -32,15 +32,16 @@ export async function submitTrashReport(reportData, imageFile) {
   await uploadBytes(storageRef, imageFile);
   const imageUrl = await getDownloadURL(storageRef);
 
-  // Updated schema mapping matches LGU interface 1:1
+  // Updated schema mapping to perfectly match what lgu.js expects
   const docRef = await addDoc(collection(db, "reports"), {
-    imageUrl,
+    imageUrl: imageUrl,
     wasteType: reportData.wasteType,
     volumeEstimate: reportData.volumeEstimate,
     location: reportData.location,
     coordinates: reportData.coordinates || null,
-    status: "pending",
-    contactInfo: reportData.contactInfo || null,
+    status: "pending", // Always default to pending
+    contactInfo: reportData.contactInfo || "Not Provided",
+    reporterName: reportData.reporterName,
     notes: reportData.notes || "",
     severityScore: reportData.severityScore != null ? Number(reportData.severityScore) : 3,
     createdAt: serverTimestamp(),
