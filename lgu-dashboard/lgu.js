@@ -42,17 +42,27 @@ import {
 
   function mapDocToReport(docSnap) {
     const data = docSnap.data();
+    
+    // Safely parse the location whether it's a string or an object
+    let safeLocation = "Unknown Location";
+    if (typeof data.location === "string") {
+      safeLocation = data.location;
+    } else if (typeof data.location === "object" && data.location !== null) {
+      // Extract the human-readable address from the object
+      safeLocation = data.location.display_name || data.location.address || data.location.name || "Map Pin Location";
+    }
+
     return {
       docId: docSnap.id,
       reportId: docSnap.id,
       id: docSnap.id.slice(0, 8).toUpperCase(),
-      category: data.wasteType || "Uncategorized",
-      location: data.location || "Unknown location",
+      category: data.wasteType || "Uncategorized",      
+      location: safeLocation,
       coordinates: data.coordinates || null,
       submittedBy: data.reporterName || "Anonymous",
-      contactInfo: data.contactInfo || "Not Provided",
+      contactInfo: data.contactInfo || "Not Provided",  
       status: normalizeStatus(data.status),
-      aiVolume: data.volumeEstimate || "N/A",
+      aiVolume: data.volumeEstimate || "N/A",           
       severity: data.severityScore != null ? Number(data.severityScore) : 0,
       notes: data.notes || "",
       imageUrl: data.imageUrl || null,
@@ -63,11 +73,14 @@ import {
   let reports = [];
   let selectedReport = null;
   let unsubscribeReports = null;
+  
+  // Map Variables
   let mapInstance = null;
   let markerLayerGroup = null;
   let dashboardMapInstance = null;
   let dashboardLayerGroup = null;
 
+  // DOM Elements
   const navDashboardBtn = document.getElementById("nav-dashboard");
   const navReportsBtn = document.getElementById("nav-reports");
   const navMapBtn = document.getElementById("nav-map");
@@ -78,7 +91,7 @@ import {
   const viewReportsPanel = document.getElementById("view-reports-panel");
   const viewMapPanel = document.getElementById("view-map-panel");
   const viewTitle = document.getElementById("view-title");
-
+  
   const statActiveEl = document.getElementById("stat-active");
   const statPendingEl = document.getElementById("stat-pending");
   const statProgressEl = document.getElementById("stat-progress");
@@ -101,22 +114,42 @@ import {
   const modalStatusBadge = document.getElementById("modal-status-badge");
   const modalStatusSelect = document.getElementById("modal-status-select");
   const modalReportImage = document.getElementById("modal-report-image");
-
+  
   const closeModalBtn = document.getElementById("close-modal-btn");
   const modalBtnCloseSecondary = document.getElementById("modal-btn-close-secondary");
   const modalBtnSave = document.getElementById("modal-btn-save");
 
-  function subscribeToReports() {
-    const reportsQuery = query(
-      collection(db, "reports"),
-      orderBy("createdAt", "desc")
-    );
+  // --- CORE INITIALIZATION ---
+  function init() {
+    setupEventListeners();
+    updateDateDisplay();
+    initLeafletMap();
+    refreshMapSizes(100);
+    subscribeToReports();
 
+    window.addEventListener("beforeunload", () => {
+      if (unsubscribeReports) unsubscribeReports();
+    });
+  }
+
+  function refreshMapSizes(delay) {
+    setTimeout(function () {
+      if (window.mapInstance) window.mapInstance.invalidateSize();
+      if (window.dashboardMapInstance) window.dashboardMapInstance.invalidateSize();
+    }, delay);
+  }
+
+  function syncMapGlobals() {
+    window.mapInstance = mapInstance;
+    window.dashboardMapInstance = dashboardMapInstance;
+  }
+
+  function subscribeToReports() {
+    const reportsQuery = query(collection(db, "reports"), orderBy("createdAt", "desc"));
     unsubscribeReports = onSnapshot(
       reportsQuery,
       (snapshot) => {
         reports = snapshot.docs.map(mapDocToReport);
-        console.log("Firestore snapshot reports:", reports);
         updateDashboardMetrics(reports);
         renderReportsTable();
         if (typeof renderMapMarkers === "function") renderMapMarkers();
@@ -132,49 +165,21 @@ import {
       (error) => {
         console.error("Firestore onSnapshot error:", error);
         if (statActiveEl) statActiveEl.textContent = "!";
-        alert(
-          "Could not load reports from Firestore. Check firebase-config.js and security rules.\n\n" +
-            error.message
-        );
+        alert("Could not load reports from Firestore.\n\n" + error.message);
       }
     );
   }
 
-  function init() {
-    setupEventListeners();
-    updateDateDisplay();
-    initLeafletMap();
-    setTimeout(function () {
-      if (dashboardMapInstance) dashboardMapInstance.invalidateSize();
-    }, 100);
-    subscribeToReports();
-
-    window.addEventListener("beforeunload", () => {
-      if (unsubscribeReports) unsubscribeReports();
-    });
-  }
-
   function updateDateDisplay() {
-    const options = {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    };
+    const options = { weekday: "long", year: "numeric", month: "long", day: "numeric" };
     const dateEl = document.getElementById("header-date");
-    if (dateEl) {
-      dateEl.textContent = new Date().toLocaleDateString("en-US", options);
-    }
+    if (dateEl) dateEl.textContent = new Date().toLocaleDateString("en-US", options);
   }
 
   function updateDashboardMetrics(reports) {
     const activeCount = reports.length;
-    const pendingCount = reports.filter(
-      (r) => r.status === "Pending Verification"
-    ).length;
-    const inProgressCount = reports.filter(
-      (r) => r.status === "In Progress"
-    ).length;
+    const pendingCount = reports.filter((r) => r.status === "Pending Verification").length;
+    const inProgressCount = reports.filter((r) => r.status === "In Progress").length;
     const resolvedCount = reports.filter((r) => r.status === "Resolved").length;
 
     if (statActiveEl) statActiveEl.textContent = String(activeCount);
@@ -183,62 +188,70 @@ import {
     if (statResolvedEl) statResolvedEl.textContent = String(resolvedCount);
   }
 
+  // --- MAP LOGIC ---
   function initLeafletMap() {
     if (!mapInstance && document.getElementById("lgu-map")) {
       mapInstance = L.map("lgu-map").setView([14.5995, 120.9842], 13);
-
       L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
         maxZoom: 19,
       }).addTo(mapInstance);
-
       markerLayerGroup = L.layerGroup().addTo(mapInstance);
     }
 
     if (!dashboardMapInstance && document.getElementById("lgu-dashboard-map")) {
-      dashboardMapInstance = L.map("lgu-dashboard-map", { zoomControl: false }).setView(
-        [14.5995, 120.9842],
-        12
-      );
-
+      dashboardMapInstance = L.map("lgu-dashboard-map", { zoomControl: false }).setView([14.5995, 120.9842], 12);
       L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
         maxZoom: 19,
       }).addTo(dashboardMapInstance);
-
       dashboardLayerGroup = L.layerGroup().addTo(dashboardMapInstance);
     }
+
+    syncMapGlobals();
   }
 
   function getReportLatLng(report) {
     const coords = report.coordinates;
-    if (coords && typeof coords.lat === "number" && typeof coords.lng === "number") {
-      return [coords.lat, coords.lng];
+    
+    // Safely extract and convert string coordinates to actual floating-point numbers
+    if (coords && coords.lat != null && coords.lng != null) {
+      const parsedLat = parseFloat(coords.lat);
+      const parsedLng = parseFloat(coords.lng);
+      
+      // Make sure the parsing actually resulted in valid numbers
+      if (!isNaN(parsedLat) && !isNaN(parsedLng)) {
+        return [parsedLat, parsedLng];
+      }
     }
+    
     if (Array.isArray(coords) && coords.length >= 2) {
-      return [coords[0], coords[1]];
+      const parsedLat = parseFloat(coords[0]);
+      const parsedLng = parseFloat(coords[1]);
+      if (!isNaN(parsedLat) && !isNaN(parsedLng)) {
+        return [parsedLat, parsedLng];
+      }
     }
-    // HACKATHON FALLBACK: Generate consistent pin near Manila if GPS denied
+    
+    // GPS Fallback to Manila center if everything else completely fails
     let hash = 0;
-    for (let i = 0; i < report.id.length; i++) {
-      hash = report.id.charCodeAt(i) + ((hash << 5) - hash);
-    }
+    for (let i = 0; i < report.id.length; i++) hash = report.id.charCodeAt(i) + ((hash << 5) - hash);
     const randomOffsetLat = (Math.abs(hash) % 100) / 15000;
     const randomOffsetLng = (Math.abs(hash >> 2) % 100) / 15000;
     return [14.5995 + randomOffsetLat, 120.9842 + randomOffsetLng];
   }
 
   function buildMarkerHtml(report) {
-    let pinColorClass = "text-blue-500";
+    let pinColorClass = "text-blue-500"; // Default: In Progress
     let pulseHtml = "";
-
+    
+    // Logic matching your new Legend
     if (report.status === "Resolved") {
       pinColorClass = "text-slate-400";
-    } else if (report.severity >= 4) {
-      pinColorClass = "text-red-600";
-      // Pulse centered specifically on the top bulb of the teardrop pin
-      pulseHtml = '<span class="absolute top-[10%] left-[20%] inline-flex h-[60%] w-[60%] rounded-full bg-red-400 opacity-60 animate-ping"></span>';
-    } else if (report.severity >= 2) {
+    } else if (report.severity >= 4) { // Critical / AI Flagged
+      pinColorClass = "text-rose-500";
+      pulseHtml = '<span class="absolute top-[10%] left-[20%] inline-flex h-[60%] w-[60%] rounded-full bg-rose-400 opacity-60 animate-ping"></span>';
+    } else if (report.status === "Pending Verification") {
       pinColorClass = "text-amber-500";
     }
 
@@ -247,39 +260,25 @@ import {
         <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
       </svg>
     `;
-
     return '<div class="relative w-full h-full">' + pulseHtml + svgIcon + '</div>';
   }
 
   function renderMapMarkers() {
     if (!markerLayerGroup && !dashboardLayerGroup) return;
-
     if (markerLayerGroup) markerLayerGroup.clearLayers();
     if (dashboardLayerGroup) dashboardLayerGroup.clearLayers();
 
     reports.forEach((report) => {
       const latLng = getReportLatLng(report);
-
-      const popupHtml =
-        '<div class="text-sm space-y-2 p-1 min-w-[180px]">' +
-        "<p><strong>Report ID:</strong> " +
-        report.id +
-        "</p>" +
-        "<p><strong>Severity:</strong> " +
-        report.severity +
-        " / 5</p>" +
-        "<p><strong>Category:</strong> " +
-        report.category +
-        "</p>" +
-        "<p><strong>Status:</strong> " +
-        report.status +
-        "</p>" +
-        '<button type="button" onclick="window.openDetailModal(\'' +
-        report.docId +
-        "')" +
-        ' class="mt-2 w-full px-3 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700">' +
-        "View Details</button>" +
-        "</div>";
+      const popupHtml = `
+        <div class="text-sm space-y-2 p-1 min-w-[180px]">
+          <p><strong>Report ID:</strong> ${report.id}</p>
+          <p><strong>Severity:</strong> ${report.severity} / 5</p>
+          <p><strong>Category:</strong> ${report.category}</p>
+          <p><strong>Status:</strong> ${report.status}</p>
+          <button type="button" onclick="window.openDetailModal('${report.docId}')" class="mt-2 w-full px-3 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700">View Details</button>
+        </div>
+      `;
 
       if (markerLayerGroup) {
         const icon = L.divIcon({
@@ -289,7 +288,6 @@ import {
           iconAnchor: [16, 32],    
           popupAnchor: [0, -32],   
         });
-
         const marker = L.marker(latLng, { icon });
         marker.bindPopup(popupHtml);
         markerLayerGroup.addLayer(marker);
@@ -302,34 +300,19 @@ import {
           iconSize: [32, 32],      
           iconAnchor: [12, 24],
         });
-
-        const dashboardMarker = L.marker(latLng, {
-          icon: dashboardIcon,
-          interactive: false,
-        });
+        const dashboardMarker = L.marker(latLng, { icon: dashboardIcon, interactive: false });
         dashboardLayerGroup.addLayer(dashboardMarker);
       }
     });
   }
 
+  // --- UI & NAVIGATION LOGIC ---
   function switchView(viewName) {
-    const navButtons = [
-      navDashboardBtn,
-      navReportsBtn,
-      navMapBtn,
-      navAnalyticsBtn,
-      navSettingsBtn,
-    ];
-
+    const navButtons = [navDashboardBtn, navReportsBtn, navMapBtn, navAnalyticsBtn, navSettingsBtn];
     navButtons.forEach((btn) => {
       if (btn) {
         btn.classList.remove("bg-blue-50", "text-blue-700", "font-semibold");
-        btn.classList.add(
-          "text-slate-600",
-          "hover:bg-slate-50",
-          "hover:text-slate-900",
-          "font-medium"
-        );
+        btn.classList.add("text-slate-600", "hover:bg-slate-50", "hover:text-slate-900", "font-medium");
       }
     });
 
@@ -339,68 +322,35 @@ import {
 
     if (viewName === "dashboard") {
       viewDashboardPanel.classList.remove("hidden");
-      if (navDashboardBtn) {
-        navDashboardBtn.classList.add("bg-blue-50", "text-blue-700", "font-semibold");
-        navDashboardBtn.classList.remove(
-          "text-slate-600",
-          "hover:bg-slate-50",
-          "hover:text-slate-900",
-          "font-medium"
-        );
-      }
+      if (navDashboardBtn) navDashboardBtn.classList.add("bg-blue-50", "text-blue-700", "font-semibold");
       if (viewTitle) viewTitle.textContent = "Dashboard";
       updateDashboardMetrics(reports);
       initLeafletMap();
-      if (typeof renderMapMarkers === "function") renderMapMarkers();
-      setTimeout(function () {
-        if (dashboardMapInstance) dashboardMapInstance.invalidateSize();
-      }, 100);
+      renderMapMarkers();
+      refreshMapSizes(100);
     } else if (viewName === "reports") {
       viewReportsPanel.classList.remove("hidden");
-      if (navReportsBtn) {
-        navReportsBtn.classList.add("bg-blue-50", "text-blue-700", "font-semibold");
-        navReportsBtn.classList.remove(
-          "text-slate-600",
-          "hover:bg-slate-50",
-          "hover:text-slate-900",
-          "font-medium"
-        );
-      }
+      if (navReportsBtn) navReportsBtn.classList.add("bg-blue-50", "text-blue-700", "font-semibold");
       if (viewTitle) viewTitle.textContent = "Civic Reports Database";
       renderReportsTable();
     } else if (viewName === "map") {
       viewMapPanel.classList.remove("hidden");
-      if (navMapBtn) {
-        navMapBtn.classList.add("bg-blue-50", "text-blue-700", "font-semibold");
-        navMapBtn.classList.remove(
-          "text-slate-600",
-          "hover:bg-slate-50",
-          "hover:text-slate-900",
-          "font-medium"
-        );
-      }
+      if (navMapBtn) navMapBtn.classList.add("bg-blue-50", "text-blue-700", "font-semibold");
       if (viewTitle) viewTitle.textContent = "Live Reports Map";
       initLeafletMap();
       renderMapMarkers();
-      setTimeout(function () {
-        if (mapInstance) mapInstance.invalidateSize();
-      }, 100);
+      refreshMapSizes(100);
     }
   }
 
   function renderReportsTable() {
     if (!reportsTableBody) return;
-
-    const queryText = reportSearchInput
-      ? reportSearchInput.value.toLowerCase().trim()
-      : "";
+    const queryText = reportSearchInput ? reportSearchInput.value.toLowerCase().trim() : "";
     let sortedList = [...reports];
 
     if (queryText) {
-      sortedList = sortedList.filter(
-        (item) =>
+      sortedList = sortedList.filter((item) =>
           item.id.toLowerCase().includes(queryText) ||
-          item.docId.toLowerCase().includes(queryText) ||
           item.category.toLowerCase().includes(queryText) ||
           item.location.toLowerCase().includes(queryText) ||
           item.submittedBy.toLowerCase().includes(queryText) ||
@@ -420,27 +370,16 @@ import {
     reportsTableBody.innerHTML = "";
 
     if (sortedList.length === 0) {
-      reportsTableBody.innerHTML = `
-        <tr>
-          <td colspan="6" class="px-6 py-12 text-center text-slate-500 font-medium bg-slate-50/50">
-            No matching reports found in database.
-          </td>
-        </tr>
-      `;
-      if (tableResultsCounter) {
-        tableResultsCounter.textContent = "Showing 0 reports";
-      }
+      reportsTableBody.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-slate-500 font-medium bg-slate-50/50">No matching reports found.</td></tr>`;
+      if (tableResultsCounter) tableResultsCounter.textContent = "Showing 0 reports";
       return;
     }
 
-    if (tableResultsCounter) {
-      tableResultsCounter.textContent = `Showing ${sortedList.length} of ${reports.length} reports`;
-    }
+    if (tableResultsCounter) tableResultsCounter.textContent = `Showing ${sortedList.length} of ${reports.length} reports`;
 
     sortedList.forEach((report) => {
       const tr = document.createElement("tr");
-      tr.className =
-        "hover:bg-slate-50/80 transition-colors border-b border-slate-100 align-middle";
+      tr.className = "hover:bg-slate-50/80 transition-colors border-b border-slate-100 align-middle";
 
       let badgeColorClass = "bg-slate-400 text-slate-700";
       let dotColorClass = "bg-slate-400";
@@ -467,13 +406,8 @@ import {
           </span>
         </td>
         <td class="px-6 py-4 text-right">
-          <button
-            data-doc-id="${report.docId}"
-            class="action-view-btn text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors px-3 py-1.5 rounded bg-blue-50 hover:bg-blue-100 inline-flex items-center gap-1"
-          >
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-            </svg>
+          <button data-doc-id="${report.docId}" class="action-view-btn text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors px-3 py-1.5 rounded bg-blue-50 hover:bg-blue-100 inline-flex items-center gap-1">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
             <span>View</span>
           </button>
         </td>
@@ -488,6 +422,7 @@ import {
     });
   }
 
+  // --- MODAL LOGIC ---
   function populateModal(report) {
     modalReportId.textContent = `Report #${report.id}`;
     modalCategory.textContent = report.category;
@@ -496,64 +431,40 @@ import {
     if (modalContactInfo) modalContactInfo.textContent = report.contactInfo || "Not Provided";
     modalAiVolume.textContent = report.aiVolume || "N/A";
     modalSeverityScore.textContent = String(report.severity || 0);
-    modalNotes.textContent = report.notes
-      ? `"${report.notes}"`
-      : '"No additional comments provided."';
+    modalNotes.textContent = report.notes ? `"${report.notes}"` : '"No additional comments provided."';
     modalStatusSelect.value = report.status;
     updateModalStatusBadge(report.status);
     modalReportImage.src = report.imageUrl || PLACEHOLDER_IMAGE;
-    modalReportImage.alt = report.imageUrl
-      ? "Submitted garbage report photo"
-      : "No photo available";
   }
 
   function openDetailModal(docId) {
     selectedReport = reports.find((r) => r.docId === docId);
     if (!selectedReport) return;
-
     populateModal(selectedReport);
     reportDetailModal.classList.remove("hidden");
     document.body.classList.add("overflow-hidden");
   }
 
   function updateModalStatusBadge(status) {
-    modalStatusBadge.className =
-      "inline-flex items-center gap-2 mt-1 px-3 py-1 rounded-full text-xs font-semibold";
+    modalStatusBadge.className = "inline-flex items-center gap-2 mt-1 px-3 py-1 rounded-full text-xs font-semibold";
     let dotEl = modalStatusBadge.querySelector("span:first-child");
     let textEl = modalStatusBadge.querySelector("span:last-child");
 
     if (!dotEl) {
-      modalStatusBadge.innerHTML =
-        '<span class="w-2 h-2 rounded-full"></span><span></span>';
+      modalStatusBadge.innerHTML = '<span class="w-2 h-2 rounded-full"></span><span></span>';
       dotEl = modalStatusBadge.querySelector("span:first-child");
       textEl = modalStatusBadge.querySelector("span:last-child");
     }
 
     textEl.textContent = status;
-
     if (status === "Resolved") {
-      modalStatusBadge.classList.add(
-        "bg-green-50",
-        "text-green-700",
-        "border",
-        "border-green-200"
-      );
+      modalStatusBadge.classList.add("bg-green-50", "text-green-700", "border", "border-green-200");
       dotEl.className = "w-2 h-2 rounded-full bg-green-500";
     } else if (status === "In Progress") {
-      modalStatusBadge.classList.add(
-        "bg-amber-50",
-        "text-amber-700",
-        "border",
-        "border-amber-200"
-      );
+      modalStatusBadge.classList.add("bg-amber-50", "text-amber-700", "border", "border-amber-200");
       dotEl.className = "w-2 h-2 rounded-full bg-amber-500";
     } else {
-      modalStatusBadge.classList.add(
-        "bg-slate-100",
-        "text-slate-700",
-        "border",
-        "border-slate-200"
-      );
+      modalStatusBadge.classList.add("bg-slate-100", "text-slate-700", "border", "border-slate-200");
       dotEl.className = "w-2 h-2 rounded-full bg-slate-400";
     }
   }
@@ -564,38 +475,14 @@ import {
     selectedReport = null;
   }
 
-  async function updateReportStatus(reportId, newStatus) {
-    try {
-      await updateDoc(doc(db, "reports", reportId), {
-        status: newStatus,
-      });
-      console.log(`Report ${reportId} status updated to ${newStatus}`);
-      return true;
-    } catch (error) {
-      console.error(`Failed to update status for report ${reportId}:`, error);
-      return false;
-    }
-  }
-
   async function saveStatusChange() {
-    console.log("Save button clicked!", {
-      selectedReportId: selectedReport?.docId,
-      selectedReportLabel: selectedReport?.id,
-      selectedStatus: modalStatusSelect?.value,
-    });
-
     if (!selectedReport) return;
-
     const newStatus = modalStatusSelect.value;
     const firestoreStatus = STATUS_TO_FIRESTORE[newStatus] || "pending";
-
     try {
       modalBtnSave.disabled = true;
       modalBtnSave.textContent = "Saving...";
-
-      const success = await updateReportStatus(selectedReport.docId, firestoreStatus);
-      if (!success) throw new Error("Firestore update failed");
-
+      await updateDoc(doc(db, "reports", selectedReport.docId), { status: firestoreStatus });
       closeModal();
     } catch (error) {
       console.error("Failed to save report status change:", error);
@@ -606,58 +493,88 @@ import {
     }
   }
 
+  function setupSidebarToggle() {
+    const sidebar = document.getElementById("main-sidebar");
+    const mainWrapper = document.getElementById("main-content-wrapper");
+    const toggleBtn = document.getElementById("toggle-sidebar-btn");
+    const toggleIcon = document.getElementById("toggle-icon");
+    const sidebarTexts = document.querySelectorAll(".sidebar-text");
+
+    if (!toggleBtn || !sidebar || !mainWrapper) return;
+
+    toggleBtn.addEventListener("click", () => {
+      sidebar.classList.toggle("w-64");
+      sidebar.classList.toggle("w-16");
+      mainWrapper.classList.toggle("pl-64");
+      mainWrapper.classList.toggle("pl-16");
+
+      const collapsed = sidebar.classList.contains("w-16");
+      if (toggleIcon) {
+        toggleIcon.innerHTML = collapsed
+          ? '<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />'
+          : '<path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />';
+      }
+      sidebarTexts.forEach((el) => {
+        if (collapsed) {
+          el.classList.add("opacity-0", "hidden");
+        } else {
+          el.classList.remove("hidden");
+          setTimeout(() => el.classList.remove("opacity-0"), 50);
+        }
+      });
+
+      setTimeout(() => {
+        if (window.mapInstance) window.mapInstance.invalidateSize();
+        if (window.dashboardMapInstance) window.dashboardMapInstance.invalidateSize();
+      }, 350);
+    });
+  }
+
+  // --- EVENT LISTENERS & SETUP ---
   function setupEventListeners() {
-    if (navDashboardBtn) {
-      navDashboardBtn.addEventListener("click", () => switchView("dashboard"));
-    }
-    if (navReportsBtn) {
-      navReportsBtn.addEventListener("click", () => switchView("reports"));
-    }
+    // Navigation Routing
+    if (navDashboardBtn) navDashboardBtn.addEventListener("click", () => switchView("dashboard"));
+    if (navReportsBtn) navReportsBtn.addEventListener("click", () => switchView("reports"));
+    if (navMapBtn) navMapBtn.addEventListener("click", () => switchView("map"));
 
-    if (navMapBtn) {
-      navMapBtn.addEventListener("click", () => switchView("map"));
-    }
+    const comingSoonButtons = [
+      navAnalyticsBtn,
+      document.getElementById("nav-tasks"),
+      document.getElementById("nav-routes"),
+      document.getElementById("nav-insights"),
+      navSettingsBtn,
+    ];
 
-    [navAnalyticsBtn, navSettingsBtn].forEach((nav) => {
+    comingSoonButtons.forEach((nav) => {
       if (nav) {
         nav.addEventListener("click", function () {
-          alert(
-            `${this.querySelector("span").textContent} page layout is configured for LGU verification systems.`
-          );
+          const featureName = this.querySelector("span")
+            ? this.querySelector("span").textContent
+            : "This feature";
+          console.log("Coming soon:", featureName);
         });
       }
     });
 
+    setupSidebarToggle();
+
+    // Modal & Table Setup
     window.openDetailModal = openDetailModal;
-
-    if (reportSearchInput) {
-      reportSearchInput.addEventListener("input", renderReportsTable);
-    }
-    if (sortSelect) {
-      sortSelect.addEventListener("change", renderReportsTable);
-    }
-
-    if (closeModalBtn) closeModalBtn.addEventListener("click", closeModal);
-    if (modalBtnCloseSecondary) {
-      modalBtnCloseSecondary.addEventListener("click", closeModal);
-    }
-    if (modalBtnSave) modalBtnSave.addEventListener("click", saveStatusChange);
-
-    if (modalStatusSelect) {
-      modalStatusSelect.addEventListener("change", function () {
-        updateModalStatusBadge(this.value);
-      });
-    }
-
     window.saveStatusChange = saveStatusChange;
+
+    if (reportSearchInput) reportSearchInput.addEventListener("input", renderReportsTable);
+    if (sortSelect) sortSelect.addEventListener("change", renderReportsTable);
+    if (closeModalBtn) closeModalBtn.addEventListener("click", closeModal);
+    if (modalBtnCloseSecondary) modalBtnCloseSecondary.addEventListener("click", closeModal);
+    if (modalBtnSave) modalBtnSave.addEventListener("click", saveStatusChange);
+    if (modalStatusSelect) modalStatusSelect.addEventListener("change", function () { updateModalStatusBadge(this.value); });
 
     const backdrop = document.getElementById("modal-backdrop");
     if (backdrop) backdrop.addEventListener("click", closeModal);
-
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" || e.key === "Esc") closeModal();
-    });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" || e.key === "Esc") closeModal(); });
   }
 
+  // Final Execution Hook
   document.addEventListener("DOMContentLoaded", init);
+
 })();

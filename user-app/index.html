@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="Basura-Pin — Community garbage mapping app"
+      content="E-Tapon Mo — Community garbage mapping app"
     />
-    <title>Basura-Pin</title>
+    <title>E-Tapon Mo</title>
 
     <!-- Tailwind CSS via CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -43,6 +43,10 @@
       };
     </script>
 
+    <!-- Leaflet Geocoder CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
     <!-- Clean, legible sans-serif from Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -52,7 +56,7 @@
     />
 
     <style>
-      /* Smooth color transitions when toggling light/dark mode */
+      /* Smooth color transitions when toggling light/dark mode
       html.theme-transition,
       html.theme-transition *,
       html.theme-transition *::before,
@@ -61,233 +65,273 @@
           background-color 0.25s ease,
           border-color 0.25s ease,
           color 0.25s ease;
+      } */
+
+      /* Modernize Leaflet Map Controls */
+      .leaflet-bar {
+        border: none !important;
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06) !important;
+        border-radius: 0.75rem !important;
+        overflow: hidden;
       }
+      .leaflet-bar a {
+        background-color: white !important;
+        color: #4b5563 !important;
+        width: 40px !important;
+        height: 40px !important;
+        line-height: 40px !important;
+        border-bottom: 1px solid #f3f4f6 !important;
+      }
+      .leaflet-bar a:hover {
+        background-color: #f9fafb !important;
+        color: #15803d !important;
+      }
+      
+      /* Modernize the inside-map Geocoder Search Bar */
+      .leaflet-control-geocoder {
+        border: none !important;
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1) !important;
+        border-radius: 9999px !important; /* Pill shape */
+        overflow: hidden;
+      }
+      .leaflet-control-geocoder-form input {
+        font-family: 'Inter', sans-serif !important;
+        padding: 10px 16px !important;
+        font-size: 14px !important;
+        border: none !important;
+        outline: none !important;
+      }
+
+      /* 1. Push top-left (Zoom) and top-right (Search) down to clear the custom header elements */
+      .leaflet-top.leaflet-left {
+        margin-top: 70px !important; 
+        margin-left: 12px !important;
+      }
+      
+      .leaflet-top.leaflet-right {
+        margin-top: 70px !important; /* This drops the search bar safely below the X button */
+        margin-right: 12px !important;
+      }
+
+      /* 2. Drop the Attribution (Contributors) back to the bottom */
+      .leaflet-bottom.leaflet-right,
+      .leaflet-bottom.leaflet-left {
+        margin-bottom: 0px !important; /* Removes the huge floating gap */
+      }
+
+      /* Clean up the attribution box so it's tiny and subtle */
+      .leaflet-control-attribution {
+        background-color: rgba(255, 255, 255, 0.5) !important;
+        backdrop-filter: blur(2px);
+        padding: 2px 6px !important;
+        font-size: 9px !important;
+        color: #9ca3af !important;
+        border: none !important;
+      }
+      .leaflet-control-attribution a {
+        color: #6b7280 !important;
+      }
+      
     </style>
   </head>
 
   <!--
-  BODY CLASSES EXPLAINED (Light Mode defaults):
-  - bg-gray-100 / dark:bg-zinc-950  → page background
-  - text-gray-900 / dark:text-gray-100 → readable body text
--->
-  <body
-    class="min-h-screen bg-gray-100 text-gray-900 antialiased dark:bg-zinc-950 dark:text-gray-100"
-  >
-    <!--
     MOBILE-FIRST APP SHELL
     On phones: full width with comfortable padding.
     On larger screens: centered column capped at max-w-md (looks like a phone app).
   -->
-    <div
-      class="mx-auto flex min-h-screen w-full max-w-md flex-col px-4 py-6 sm:px-6"
-    >
-      <!-- ============================================================
-         SECTION 1: HEADER
-         App title, dynamic street location, theme toggle button
-         ============================================================ -->
-      <header
-        class="mb-4 flex items-start justify-between gap-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-electric-500/40 dark:bg-zinc-900 dark:shadow-purple-900/20"
-        role="banner"
-      >
-        <div class="min-w-0 flex-1">
-          <h1
-            class="text-2xl font-bold tracking-tight text-gray-900 dark:text-white"
-          >
-            Basura-Pin
-          </h1>
-          <!-- Location is dynamically loaded from params by script -->
-          <p
-            id="street-location"
-            class="mt-1 text-sm text-gray-600 dark:text-gray-400"
-            aria-live="polite"
-          >
-            📍 Location: Brgy 630, Mabini St.
+ 
+  <body class="min-h-screen bg-gray-50 text-gray-900 antialiased font-sans pb-12">
+
+    <!-- Main Card Shell -->
+    <div class="mx-auto w-full max-w-md bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
+      
+      <!-- Header / Logo Area -->
+      <header class="pt-4 pb-6 border-b border-gray-100 flex flex-col items-center justify-center text-center">
+  
+        <div class="mb-0">
+          <img 
+            src="assets/ogLogo.svg" 
+            alt="E-Tapon Mo Logo" 
+            class="h-20 w-auto object-contain drop-shadow-sm transition-all duration-300"
+          />
+        </div>
+        
+        <div class="flex flex-col items-center">
+          <h2 class="text-3xl font-extrabold text-green-800 tracking-tight leading-tight">
+            E-Tapon Mo
+          </h2>
+          <p class="text-xs font-bold text-gray-500 uppercase tracking-widest mt-1.0">
+            Bayan • Kalikasan • Kinabukasan
           </p>
         </div>
-
-        <!-- Theme toggle: Sun (light) / Moon (dark) icons -->
-        <button
-          id="theme-toggle"
-          type="button"
-          class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-gray-300 bg-gray-50 text-gray-700 transition hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 dark:border-electric-500/50 dark:bg-zinc-800 dark:text-electric-400 dark:hover:bg-zinc-700 dark:focus-visible:ring-electric-500 dark:focus-visible:ring-offset-zinc-950"
-          aria-label="Toggle dark mode"
-          aria-pressed="false"
-        >
-          <!-- Sun icon — visible in LIGHT mode (click to enable dark) -->
-          <svg
-            id="icon-sun"
-            class="h-5 w-5"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke-width="1.75"
-            stroke="currentColor"
-            aria-hidden="true"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z"
-            />
-          </svg>
-          <!-- Moon icon — visible in DARK mode (click to enable light) -->
-          <svg
-            id="icon-moon"
-            class="hidden h-5 w-5"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke-width="1.75"
-            stroke="currentColor"
-            aria-hidden="true"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z"
-            />
-          </svg>
-        </button>
+      
       </header>
 
-      <!-- ============================================================
-         SECTION 1B: REPORTER INFO FIELDS
-         ============================================================ -->
-      <section
-        class="mb-6 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-electric-500/40 dark:bg-zinc-900 dark:shadow-purple-900/20"
-        aria-labelledby="reporter-info-heading"
-      >
-        <h2 id="reporter-info-heading" class="sr-only">Reporter Info</h2>
-        <div class="space-y-4">
-          <!-- Name input -->
-          <div>
-            <label
-              for="reporter-name"
-              class="block text-sm font-medium text-gray-700 dark:text-gray-300"
-              >Your Name (Optional)</label
-            >
-            <input
-              type="text"
-              id="reporter-name"
-              name="reporter-name"
-              placeholder="e.g., Jane Doe"
-              class="mt-1 block w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-2 text-gray-900 shadow-sm transition focus:border-purple-500 focus:ring-2 focus:ring-purple-500 dark:border-electric-500/40 dark:bg-zinc-800 dark:text-white dark:focus:border-electric-500 dark:focus:ring-electric-500"
-              autocomplete="off"
-            />
-          </div>
-          <!-- Trash category -->
-          <div>
-            <label
-              for="waste-category"
-              class="block text-sm font-medium text-gray-700 dark:text-gray-300"
-              >Trash Category</label
-            >
-            <select
-              id="waste-category"
-              name="waste-category"
-              required
-              class="mt-1 block w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-2 text-gray-900 shadow-sm transition focus:border-purple-500 focus:ring-2 focus:ring-purple-500 dark:border-electric-500/40 dark:bg-zinc-800 dark:text-white dark:focus:border-electric-500 dark:focus:ring-electric-500"
-            >
-              <option value="" disabled selected>Select a category</option>
-              <option value="bio">Biodegradable</option>
-              <option value="non-bio">Non-Biodegradable</option>
-              <option value="mixed">Mixed</option>
-              <option value="recycle">Recyclable</option>
-            </select>
-          </div>
-          <!-- Contact for status updates -->
-          <div>
-            <label
-              for="contact-info"
-              class="block text-sm font-medium text-gray-700 dark:text-gray-300"
-              >Contact Information (Optional)</label
-            >
-            <input
-              type="text"
-              id="contact-info"
-              name="contact-info"
-              placeholder="e.g., jane@email.com or 0917 123 4567"
-              class="mt-1 block w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-2 text-gray-900 shadow-sm transition focus:border-purple-500 focus:ring-2 focus:ring-purple-500 dark:border-electric-500/40 dark:bg-zinc-800 dark:text-white dark:focus:border-electric-500 dark:focus:ring-electric-500"
-              autocomplete="off"
-            />
-            <p class="mt-1.5 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
-              Optional: Provide your email or phone number if you would like to
-              receive automated status updates as the LGU reviews and resolves
-              your report.
-            </p>
-          </div>
-          <!-- Notes textarea -->
-          <div>
-            <label
-              for="reporter-notes"
-              class="block text-sm font-medium text-gray-700 dark:text-gray-300"
-              >Additional Notes (Optional)</label
-            >
-            <textarea
-              id="reporter-notes"
-              name="reporter-notes"
-              rows="3"
-              placeholder="e.g., Blocking the drainage, near the store..."
-              class="mt-1 block w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-2 text-gray-900 shadow-sm transition focus:border-purple-500 focus:ring-2 focus:ring-purple-500 dark:border-electric-500/40 dark:bg-zinc-800 dark:text-white dark:focus:border-electric-500 dark:focus:ring-electric-500"
-            ></textarea>
+      <div class="p-6 space-y-8">
+
+        <!-- Phase Tracker -->
+        <div class="mb-4 px-2">
+          <div class="flex items-center justify-between relative z-0">
+            <div class="absolute left-0 top-4 -translate-y-1/2 h-1 w-full bg-gray-200 -z-10 rounded-full"></div>
+            <div id="stepper-progress-bar" class="absolute left-0 top-4 -translate-y-1/2 h-1 w-0 bg-green-700 -z-10 transition-all duration-500 ease-in-out rounded-full"></div>
+
+            <div class="flex flex-col items-center gap-1 bg-white px-2 stepper-step" data-step="1">
+              <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold bg-green-700 text-white transition-colors duration-300 step-circle ring-4 ring-white">1</div>
+              <span class="text-[10px] font-bold text-green-800 transition-colors duration-300 step-label">Photo</span>
+            </div>
+            <div class="flex flex-col items-center gap-1 bg-white px-2 stepper-step" data-step="2">
+              <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold bg-gray-200 text-gray-500 transition-colors duration-300 step-circle ring-4 ring-white">2</div>
+              <span class="text-[10px] font-semibold text-gray-400 transition-colors duration-300 step-label">AI Analysis</span>
+            </div>
+            <div class="flex flex-col items-center gap-1 bg-white px-2 stepper-step" data-step="3">
+              <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold bg-gray-200 text-gray-500 transition-colors duration-300 step-circle ring-4 ring-white">3</div>
+              <span class="text-[10px] font-semibold text-gray-400 transition-colors duration-300 step-label">Details</span>
+            </div>
+            <div class="flex flex-col items-center gap-1 bg-white px-2 stepper-step" data-step="4">
+              <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold bg-gray-200 text-gray-500 transition-colors duration-300 step-circle ring-4 ring-white">4</div>
+              <span class="text-[10px] font-semibold text-gray-400 transition-colors duration-300 step-label">Submit</span>
+            </div>
           </div>
         </div>
-      </section>
+        
+        <!-- Step 1: Photo -->
+        <section>
+          <h3 class="text-sm font-bold text-green-800 mb-1">1. Take a Photo</h3>
+          <p class="text-xs text-gray-500 mb-3">Take a clear photo of the waste problem.</p>
+          
+          <div class="relative overflow-hidden rounded-xl border-2 border-dashed border-green-300 bg-green-50 p-6 text-center transition focus-within:ring-2 focus-within:ring-green-500 hover:bg-green-100">
+            <input id="trash-photo-input" type="file" accept="image/*" capture="environment" class="sr-only" aria-label="Snap trash photo" />
+            <label for="trash-photo-input" class="cursor-pointer flex flex-col items-center gap-2">
+              <svg class="w-8 h-8 text-green-700" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+              <span class="text-sm font-bold text-green-800">Tap to take a photo</span>
+              <span class="text-xs text-green-600">or upload from gallery</span>
+            </label>
+          </div>
+          <p class="text-center text-[10px] text-gray-400 mt-2">Tips: Include the waste and surrounding area for better analysis.</p>
+        </section>
 
-      <!-- ============================================================
-         SECTION 2: CAMERA CARD
-         Mimics a live camera viewport with a snap-photo action
-         ============================================================ -->
-      <section class="mb-6" aria-labelledby="camera-heading">
-        <h2 id="camera-heading" class="sr-only">Camera</h2>
+        <!-- Step 2: AI Analysis (Displays Preview & Results) -->
+        <section>
+          <h3 class="text-sm font-bold text-green-800 mb-1">2. AI Analysis Result</h3>
+          <p class="text-xs text-gray-500 mb-3">Our AI will analyze your photo here.</p>
+          
+          <div id="ai-summary" class="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600 whitespace-pre-wrap">
+            Waiting for photo...
+          </div>
+        </section>
 
-        <div
-          class="relative overflow-hidden rounded-2xl border-2 border-dashed border-purple-300 bg-gradient-to-b from-gray-50 to-white p-6 shadow-inner dark:border-electric-500/60 dark:from-zinc-900 dark:to-zinc-950"
-        >
-          <!-- Decorative "viewfinder" corners for camera feel -->
-          <div
-            class="pointer-events-none absolute inset-4 rounded-xl border border-gray-200/80 dark:border-electric-500/30"
-            aria-hidden="true"
-          ></div>
+        <!-- Step 3: Details & User Category Dropdown -->
+        <section>
+          <h3 class="text-sm font-bold text-green-800 mb-1">3. Additional Details</h3>
+          <p class="text-xs text-gray-500 mb-3">Help us understand the issue better.</p>
+          
+          <div class="space-y-4">
 
-          <!-- Viewport label -->
-          <p
-            class="mb-4 text-center text-xs font-medium uppercase tracking-widest text-gray-500 dark:text-electric-400/80"
-          >
-            Camera Viewport
-          </p>
+         <!-- Unified Location Search & Map Trigger -->
+         <div class="relative w-full">
+          <label class="block text-xs font-bold text-gray-700 mb-1">Location <span class="text-red-500">*</span></label>
+          
+          <div class="relative flex items-center w-full rounded-lg border border-gray-300 bg-white focus-within:border-green-500 focus-within:ring-1 focus-within:ring-green-500 transition-all shadow-sm">
+            
+            <!-- Left Icon -->
+            <span class="pl-3 text-green-700">
+              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+            </span>
+            
+            <!-- Input Field -->
+            <input type="text" id="map-search-input" placeholder="Search address or landmark..." 
+                   class="w-full bg-transparent p-3 text-sm text-gray-900 focus:outline-none placeholder:text-gray-400" autocomplete="off">
+            
+            <!-- Clear Button (Hidden until typing) -->
+            <button type="button" id="clear-search-btn" class="hidden p-2 text-gray-400 hover:text-gray-600 transition">
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path></svg>
+            </button>
+            
+            <!-- Map Modal Trigger (The right arrow button) -->
+            <button type="button" id="open-map-btn" class="p-3 text-green-700 hover:text-green-800 border-l border-gray-200 transition" title="Open Map to Pin Location">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path></svg>
+            </button>
+          </div>
+    
+          <!-- Autocomplete Dropdown Container -->
+          <ul id="search-suggestions" class="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg hidden max-h-60 overflow-y-auto divide-y divide-gray-100">
+            <!-- Suggestions injected here via JS -->
+          </ul>
+        </div>
+            
+          <!-- Waste Category Dropdown -->
+          <div class="space-y-4">
+            <div>
+              <label for="waste-category" class="block text-xs font-bold text-gray-700 mb-1">Waste Category <span class="text-red-500">*</span></label>
+              <select id="waste-category" name="waste-category" required class="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-green-500 focus:ring-1 focus:ring-green-500">
+                <option value="" disabled selected>Select the type of waste</option>
+                <option value="mixed">Nabubulok</option>
+                <option value="organic">Recyclable</option>
+                <option value="plastic">Non-recyclable</option>
+                <option value="construction">Hazardous Waste</option>
+                <option value="construction">Healthcare Waste</option>
+                <option value="mixed">Mixed Waste</option>
+              </select>
+            </div>
+            
+            <div>
+              <label for="reporter-notes" class="block text-xs font-bold text-gray-700 mb-1">Additional Notes (Optional)</label>
+              <textarea id="reporter-notes" rows="2" placeholder="e.g. Blocking the drainage, near the store..." class="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-green-500 focus:ring-1 focus:ring-green-500"></textarea>
+            </div>
 
-          <!--
-          Hidden native file input — MUST keep these exact attributes:
-          type="file"          → file picker / camera
-          accept="image/*"     → images only
-          capture="environment"→ rear camera on mobile (not gallery-first)
-        -->
-          <input
-            id="trash-photo-input"
-            type="file"
-            accept="image/*"
-            capture="environment"
-            class="sr-only"
-            aria-label="Snap trash photo using camera"
+            <div class="mb-4">
+              <label for="reporter-name" class="block text-xs font-bold text-gray-700 dark:text-zinc-300 mb-1">
+                Full Name (Optional)
+              </label>
+              <input 
+                type="text" 
+                id="reporter-name" 
+                placeholder="e.g., Juan Dela Cruz" 
+                class="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-green-500 focus:ring-1 focus:ring-green-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white" 
+                autocomplete="name" 
+              />
+            </div>
+
+         <!-- Combined Contact Information (Required) -->
+        <div>
+          <label for="reporter-contact" class="block text-xs font-bold text-gray-700 mb-1">Contact Information <span class="text-red-500">*</span></label>
+          <input 
+            type="text" 
+            id="reporter-contact" 
+            required 
+            pattern="^([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}|(09|\+639)\d{9})$" 
+            placeholder="juan@example.com OR 09171234567" 
+            class="peer block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-green-500 focus:ring-1 focus:ring-green-500 invalid:[&:not(:placeholder-shown)]:border-red-500 invalid:[&:not(:placeholder-shown)]:focus:border-red-500 invalid:[&:not(:placeholder-shown)]:focus:ring-red-500" 
+            autocomplete="on" 
           />
-
-          <!--
-          Styled label acts as the visible button.
-          Clicking it triggers the hidden input above.
-        -->
-          <label
-            for="trash-photo-input"
-            class="mx-auto flex w-full max-w-xs cursor-pointer items-center justify-center gap-2 rounded-xl bg-purple-600 px-6 py-4 text-center text-base font-semibold text-white shadow-lg shadow-purple-600/30 transition hover:bg-purple-700 focus-within:outline-none focus-within:ring-2 focus-within:ring-purple-500 focus-within:ring-offset-2 dark:bg-electric-600 dark:shadow-electric-600/40 dark:hover:bg-electric-500 dark:focus-within:ring-electric-400 dark:focus-within:ring-offset-zinc-950"
-          >
-            📷 Snap Trash Photo
-          </label>
-
-          <p class="mt-4 text-center text-xs text-gray-500 dark:text-gray-500">
-            Uses your device camera on mobile
+          <!-- Error Message (Hidden until invalid) -->
+          <p class="mt-1 hidden text-xs text-red-500 peer-[&:not(:placeholder-shown):invalid]:block">
+            Please enter a valid email address OR a valid PH mobile number (e.g., 09123456789).
           </p>
         </div>
-      </section>
+
+
+                  </div>
+        </section>
+
+        <!-- Step 4: Submit -->
+        <section>
+          <h3 class="text-sm font-bold text-green-800 mb-1">4. Submit Report</h3>
+          <p class="text-xs text-gray-500 mb-3">Please review and submit your report.</p>
+          
+          <button id="submit-report-btn" type="button" class="flex w-full items-center justify-center gap-2 rounded-xl bg-green-700 px-6 py-4 text-sm font-bold text-white shadow-md transition hover:bg-green-800 focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+            <svg id="submit-spinner" class="hidden h-4 w-4 animate-spin text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            <span id="submit-text">Submit Report</span>
+          </button>
+          
+          <p class="text-center text-[10px] text-gray-400 mt-3 flex items-center justify-center gap-1">
+            <span>🔒</span> Your report is secure and confidential.
+          </p>
+        </section>
+      </div>
+    </div>
+
 
       <!-- ============================================================
          FLASH MESSAGE SUCCESS AND ERROR MODALS
@@ -488,189 +532,101 @@
         })();
       </script>
 
-      <!-- ============================================================
-         SECTION 3: AI SUMMARY PREVIEW
-         Read-only placeholder until a photo is analyzed
-         ============================================================ -->
-      <section class="mb-6" aria-labelledby="summary-heading">
-        <h2
-          id="summary-heading"
-          class="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400"
-        >
-          AI Analysis
-        </h2>
-
-        <div
-          id="ai-summary"
-          class="min-h-[120px] rounded-2xl border border-gray-200 bg-white p-5 text-sm leading-relaxed text-gray-500 shadow-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-400"
-          role="status"
-          aria-readonly="true"
-        >
-          AI Analysis will appear here after snapping a photo...
+       <!-- Leaflet Map Integration
+      <div
+      id="map-modal"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-6 transition-all duration-200 ease-in-out hidden"
+      aria-modal="true"
+      role="dialog"
+    >
+      <div class="relative w-full max-w-lg rounded-3xl bg-white shadow-2xl flex flex-col h-[85vh] max-h-[800px] overflow-hidden">
+        
+        <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-white z-10">
+          <h3 class="text-lg font-bold text-gray-900">Search & Pin Location</h3>
+          <button id="close-map-icon" class="text-gray-400 hover:text-gray-600">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+          </button>
         </div>
-      </section>
+        
+        <div id="leaflet-map" class="w-full flex-grow z-0"></div>
+        
+        <div class="p-5 bg-white border-t border-gray-100 space-y-3 z-10">
+          <p id="map-address-text" class="text-sm text-gray-600 text-center font-medium line-clamp-2">
+            Search a place or drag the map to pin the exact trash location.
+          </p>
 
-      <!-- ============================================================
-         SECTION 4: SUCCESS / ERROR ALERT PLACEHOLDERS
-         Hidden by default — toggle visibility with JavaScript later.
-         Example: document.getElementById('alert-success').classList.remove('hidden');
-         ============================================================ -->
+          <button type="button" id="confirm-location-btn" class="w-full rounded-xl bg-green-700 px-6 py-3 text-sm font-bold text-white shadow-md transition hover:bg-green-800 disabled:opacity-50 disabled:cursor-not-allowed">
+            Confirm This Pin
+          </button>
+          
+          <button type="button" id="gps-fallback-btn" class="w-full flex items-center justify-center gap-2 rounded-xl bg-gray-100 px-6 py-3 text-sm font-bold text-gray-700 transition hover:bg-gray-200">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4"></path></svg>
+            Use My Current GPS
+          </button>
+        </div>
+      </div>
+    </div>  -->
 
-      <!-- Green success banner (hidden until upload is approved) -->
-      <div
-        id="alert-success"
-        class="mb-4 hidden rounded-xl border border-green-300 bg-green-50 px-4 py-3 text-sm font-medium text-green-800 dark:border-green-500/40 dark:bg-green-950/50 dark:text-green-300"
-        role="alert"
-        aria-live="assertive"
-      >
-        ✅ Upload approved: Trash detected!
+    <!-- Leaflet Map Integration (Modernized) -->
+    <div
+    id="map-modal"
+    class="fixed inset-0 z-[60] flex items-center justify-center bg-gray-900/60 backdrop-blur-sm sm:p-6 transition-all hidden"
+    aria-modal="true"
+    role="dialog"
+  >
+    <div class="relative w-full max-w-lg sm:rounded-[2rem] bg-white shadow-2xl flex flex-col h-full sm:h-[85vh] sm:max-h-[850px] overflow-hidden border border-gray-100">
+      
+      <div class="absolute top-4 left-4 right-4 z-[400] flex justify-between items-start pointer-events-none">
+        
+        <div class="bg-white/95 backdrop-blur-md px-4 py-2.5 rounded-full shadow-md border border-gray-200 pointer-events-auto flex items-center gap-2">
+          <svg class="w-5 h-5 text-red-600" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+          <h3 class="text-xs font-black text-gray-800 tracking-wide uppercase">Pin Location</h3>
+        </div>
+        
+        <button id="close-map-icon" class="w-11 h-11 flex items-center justify-center bg-white/95 backdrop-blur-md text-gray-600 rounded-full shadow-md hover:text-red-500 hover:bg-gray-50 transition pointer-events-auto border border-gray-200">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+      </div>
+      
+      <div id="leaflet-map" class="w-full h-full z-0"></div>
+      
+      <div class="absolute bottom-0 left-0 right-0 z-[400] pointer-events-none flex flex-col items-end gap-3 sm:p-4">
+        
+        <div class="px-4 sm:px-0">
+          <button type="button" id="gps-fallback-btn" class="pointer-events-auto flex items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-bold text-gray-700 shadow-[0_4px_15px_rgba(0,0,0,0.1)] transition hover:bg-gray-50 hover:text-green-700 border border-gray-200">
+            <svg class="w-5 h-5 text-green-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4"></path></svg>
+            My Location
+          </button>
+        </div>
+
+        <div class="pointer-events-auto bg-white w-full rounded-t-3xl sm:rounded-3xl p-6 shadow-[0_-10px_40px_rgba(0,0,0,0.15)] flex flex-col gap-5 border border-gray-100">
+          
+          <div class="w-12 h-1.5 bg-gray-200 rounded-full mx-auto -mt-2 mb-1"></div>
+          
+          <div class="flex items-start gap-4">
+            <div class="mt-1 flex-shrink-0 w-12 h-12 bg-green-50 rounded-full flex items-center justify-center border border-green-100 relative shadow-inner">
+              <svg class="w-6 h-6 text-red-600 relative z-10 drop-shadow-sm" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+              <div class="absolute bottom-2 w-6 h-px bg-green-200 rotate-45"></div>
+              <div class="absolute bottom-2 w-6 h-px bg-green-200 -rotate-45"></div>
+            </div>
+            
+            <div class="flex-1">
+              <h4 class="text-[15px] font-extrabold text-gray-900 mb-1">Pinned Location</h4>
+              <p id="map-address-text" class="text-xs text-gray-600 font-medium line-clamp-3 leading-relaxed w-full pr-2">
+                Drag the map to pin the exact trash location.
+              </p>
+            </div>
+          </div>
+          
+          <button type="button" id="confirm-location-btn" class="w-full flex items-center justify-center rounded-xl bg-[#0b7a39] px-6 py-4 text-[15px] font-bold text-white shadow-md transition-transform active:scale-[0.98] hover:bg-green-800 disabled:opacity-50 disabled:cursor-not-allowed">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+            Confirm This Pin
+          </button>
+        </div>
       </div>
 
-      <!-- Red error banner (hidden until upload is rejected) -->
-      <div
-        id="alert-error"
-        class="mb-4 hidden rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm font-medium text-red-800 dark:border-red-500/40 dark:bg-red-950/50 dark:text-red-300"
-        role="alert"
-        aria-live="assertive"
-      >
-        ❌ Upload rejected: No trash detected.
-      </div>
-
-      <!-- ================================================================
-       SUBMIT BUTTON
-       ================================================================ -->
-      <button
-        id="submit-report-btn"
-        type="button"
-        class="mt-4 mb-6 flex w-full items-center justify-center gap-2 rounded-xl bg-purple-600 px-6 py-4 text-base font-bold text-white shadow-lg shadow-purple-600/30 transition hover:scale-[1.02] hover:bg-purple-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 dark:bg-electric-600 dark:shadow-electric-600/40 dark:hover:bg-electric-500"
-      >
-        <svg
-          id="submit-spinner"
-          class="hidden h-5 w-5 animate-spin text-white"
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-        >
-          <circle
-            class="opacity-25"
-            cx="12"
-            cy="12"
-            r="10"
-            stroke="currentColor"
-            stroke-width="4"
-          ></circle>
-          <path
-            class="opacity-75"
-            fill="currentColor"
-            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-          ></path>
-        </svg>
-        <span id="submit-text">Submit Trash Report</span>
-      </button>
-
-      <footer
-        class="mt-auto pt-4 pb-8 text-center text-xs text-gray-400 dark:text-zinc-600"
-      >
-        Basura-Pin · Community Garbage Mapping
-      </footer>
     </div>
-
-    <!-- ================================================================
-       EMBEDDED JAVASCRIPT
-       Theme toggle + small helpers for future features
-       ================================================================ -->
-    <script>
-      (function () {
-        "use strict";
-
-        /* --------------------------------------------------------------
-         THEME TOGGLE (Light ↔ Dark)
-         - Default: Light Mode
-         - Persists choice in localStorage
-         -------------------------------------------------------------- */
-
-        const STORAGE_KEY = "basura-pin-theme";
-        const root = document.documentElement;
-        const toggleBtn = document.getElementById("theme-toggle");
-        const iconSun = document.getElementById("icon-sun");
-        const iconMoon = document.getElementById("icon-moon");
-
-        /** Apply theme classes and update the toggle button state */
-        function applyTheme(isDark) {
-          root.classList.toggle("dark", isDark);
-          toggleBtn.setAttribute("aria-pressed", String(isDark));
-          toggleBtn.setAttribute(
-            "aria-label",
-            isDark ? "Switch to light mode" : "Switch to dark mode",
-          );
-
-          // Show moon in dark mode, sun in light mode
-          iconSun.classList.toggle("hidden", isDark);
-          iconMoon.classList.toggle("hidden", !isDark);
-        }
-
-        /** Read saved preference; fall back to light mode */
-        function getInitialTheme() {
-          const saved = localStorage.getItem(STORAGE_KEY);
-          if (saved === "dark") return true;
-          if (saved === "light") return false;
-          return false; // default: light
-        }
-
-        /** Smooth transition when user clicks the toggle */
-        function enableTransitionBriefly() {
-          root.classList.add("theme-transition");
-          window.setTimeout(function () {
-            root.classList.remove("theme-transition");
-          }, 300);
-        }
-
-        // Apply theme immediately on page load (before paint flicker)
-        applyTheme(getInitialTheme());
-
-        toggleBtn.addEventListener("click", function () {
-          const willBeDark = !root.classList.contains("dark");
-          enableTransitionBriefly();
-          applyTheme(willBeDark);
-          localStorage.setItem(STORAGE_KEY, willBeDark ? "dark" : "light");
-        });
-
-        /* --------------------------------------------------------------
-         OPTIONAL: Update street location dynamically
-         Call setStreetLocation('Brgy 123, Example St.') from app.js later
-         -------------------------------------------------------------- */
-        window.setStreetLocation = function (locationText) {
-          var el = document.getElementById("street-location");
-          if (el) {
-            el.textContent = "📍 Location: " + locationText;
-          }
-        };
-
-        /* --------------------------------------------------------------
-         OPTIONAL: Show / hide alert banners from app.js later
-         Example:
-           showAlert('success');
-           showAlert('error');
-           hideAlerts();
-         -------------------------------------------------------------- */
-        window.showAlert = function (type) {
-          var success = document.getElementById("alert-success");
-          var error = document.getElementById("alert-error");
-          if (type === "success") {
-            success.classList.remove("hidden");
-            error.classList.add("hidden");
-          } else if (type === "error") {
-            error.classList.remove("hidden");
-            success.classList.add("hidden");
-          }
-        };
-
-        window.hideAlerts = function () {
-          document.getElementById("alert-success").classList.add("hidden");
-          document.getElementById("alert-error").classList.add("hidden");
-        };
-      })();
-    </script>
+  </div>
 
     <!-- Photo capture + Gemini AI analysis (ES module — imports ./config.js) -->
     <script type="module" src="app.js"></script>
