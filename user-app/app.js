@@ -1,3 +1,7 @@
+// ==========================================
+// 1. IMPORTS & CONFIG
+// ==========================================
+
 /**
  * Basura-Pin — Photo capture & Gemini AI validation
  *
@@ -28,6 +32,10 @@ const VALIDATOR_PROMPT_BASE =
   'Step 1: If there is absolutely NO trash visible, return the exact JSON: `{"valid": false, "error": "No waste detected"}`. ' +
   'Step 2: If ANY trash is visible, return valid: true. Estimate the volume using recognizable metrics (e.g., "Sack-sized", "1-2 cubic meters", "Small pile", "Loose litter"). ' +
   'Step 3: Rate the severity score from 1 (minor litter/contained in bin) to 5 (critical block of road/drainage or massive dumpsite). Return JSON: `{"valid": true, "volume": "[estimate]", "severity_score": [1-5]}`.';
+
+// ==========================================
+// 2. DOM ELEMENTS & STATE
+// ==========================================
 
 // DOM references
 const photoInput = document.getElementById("trash-photo-input");
@@ -139,7 +147,7 @@ function updateStepper() {
 
   // Keep at step 4 if submitting OR if the report is finishe
   if (isSubmitting || isReportComplete) {
-    activeStep = 4; 
+    activeStep = 4;
   }
 
   const steps = document.querySelectorAll(".stepper-step");
@@ -255,9 +263,9 @@ function getErrorMessage(error) {
   return error.message || "Unknown error. Please try again.";
 }
 
-// ---------------------------------------------------------------------------
-// Photo preview (no API call on selection)
-// ---------------------------------------------------------------------------
+// ==========================================
+// 3. CAMERA & FILE UPLOAD LOGIC
+// ==========================================
 
 /** Revoke the previous blob URL to free memory */
 function revokePreviewUrl() {
@@ -274,18 +282,18 @@ function showPhotoPreview(file) {
 
   setSummaryHtml(
     '<div class="space-y-3">' +
-      "<img" +
-      ' src="' +
-      previewObjectUrl +
-      '"' +
-      ' alt="Preview of captured trash photo"' +
-      ' class="w-full max-h-56 rounded-xl object-cover border border-gray-200 dark:border-zinc-700"' +
-      "/>" +
-      '<p class="text-gray-600 dark:text-gray-400">' +
-      "Photo ready. Review the preview, add any notes, then tap " +
-      "<strong>Submit Trash Report</strong>." +
-      "</p>" +
-      "</div>",
+    "<img" +
+    ' src="' +
+    previewObjectUrl +
+    '"' +
+    ' alt="Preview of captured trash photo"' +
+    ' class="w-full max-h-56 rounded-xl object-cover border border-gray-200 dark:border-zinc-700"' +
+    "/>" +
+    '<p class="text-gray-600 dark:text-gray-400">' +
+    "Photo ready. Review the preview, add any notes, then tap " +
+    "<strong>Submit Trash Report</strong>." +
+    "</p>" +
+    "</div>",
   );
 }
 
@@ -301,9 +309,9 @@ if (photoInput) {
   });
 }
 
-// ---------------------------------------------------------------------------
-// Gemini API
-// ---------------------------------------------------------------------------
+// ==========================================
+// 4. GEMINI AI ANALYSIS
+// ==========================================
 
 /**
  * fetch wrapper with AbortController timeout so hung requests never block the UI.
@@ -439,9 +447,10 @@ function extractJsonFromGeminiResponse(data) {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Leaflet Map & Location Logic
-// ---------------------------------------------------------------------------
+// ==========================================
+// 5. GEOLOCATION LOGIC
+// ==========================================
+
 const mapModal = document.getElementById("map-modal");
 const openMapBtn = document.getElementById("open-map-btn");
 const closeMapIcon = document.getElementById("close-map-icon");
@@ -563,11 +572,10 @@ gpsBtn?.addEventListener("click", () => {
   }
 });
 
-// ---------------------------------------------------------------------------
-// Submit handler
-// ---------------------------------------------------------------------------
+// ==========================================
+// 6. FIREBASE SUBMISSION LOGIC
+// ==========================================
 
-/** Update #ai-summary and open the appropriate flash modal */
 /** Update #ai-summary and open the appropriate flash modal */
 function handleValidationResult(result, reporter, reportId, contact) {
   if (result.valid === true) {
@@ -675,14 +683,14 @@ if (submitBtn) {
         location: finalAddress || getReportLocation(),
         coordinates: finalCoordinates || null,
         contactInfo: contactValue,
-        reporterName: reporterName || "Anonymous", 
+        reporterName: reporterName || "Anonymous",
         notes: reporter.notes,
         severityScore: result.severity_score != null ? result.severity_score : 3,
       };
 
 
       const reportId = await submitTrashReport(reportData, selectedFile);
-      
+
       isReportComplete = true;
 
       console.log("Basura-Pin report submitted:", {
@@ -701,7 +709,7 @@ if (submitBtn) {
       console.error("Basura-Pin submission error:", error);
       setSummary(
         "Something went wrong while processing your report.\n\n" +
-          getErrorMessage(error),
+        getErrorMessage(error),
       );
 
       if (typeof window.showErrorModal === "function") {
@@ -714,9 +722,10 @@ if (submitBtn) {
     }
   });
 
-  // ---------------------------------------------------------------------------
-  // Nominatim Autocomplete Logic for Location Search
-  // ---------------------------------------------------------------------------
+  // ==========================================
+  // 7. UI/UX EVENT LISTENERS
+  // ==========================================
+
   const mapSearchInput = document.getElementById("map-search-input");
   const searchSuggestions = document.getElementById("search-suggestions");
   const clearSearchBtn = document.getElementById("clear-search-btn");
@@ -811,22 +820,22 @@ if (submitBtn) {
     }
   });
 
-// ---------------------------------------------------------------------------
-// App Reset Logic
-// ---------------------------------------------------------------------------
-// When the user dismisses the success modal, reset the internal app state back to Step 1
-document.getElementById("close-success-modal")?.addEventListener("click", () => {
-  selectedFile = null;
-  isReportComplete = false;
-  finalCoordinates = null;
-  finalAddress = "";
-  
-  // Clear the map search bar explicitly
-  const searchInput = document.getElementById("map-search-input");
-  if (searchInput) searchInput.value = "";
-  document.getElementById("clear-search-btn")?.classList.add("hidden");
-  
-  // Recalculate the stepper (will drop back to Step 1)
-  updateStepper(); 
-});
+  // ---------------------------------------------------------------------------
+  // App Reset Logic
+  // ---------------------------------------------------------------------------
+  // When the user dismisses the success modal, reset the internal app state back to Step 1
+  document.getElementById("close-success-modal")?.addEventListener("click", () => {
+    selectedFile = null;
+    isReportComplete = false;
+    finalCoordinates = null;
+    finalAddress = "";
+
+    // Clear the map search bar explicitly
+    const searchInput = document.getElementById("map-search-input");
+    if (searchInput) searchInput.value = "";
+    document.getElementById("clear-search-btn")?.classList.add("hidden");
+
+    // Recalculate the stepper (will drop back to Step 1)
+    updateStepper();
+  });
 }

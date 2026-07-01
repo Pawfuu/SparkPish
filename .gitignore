@@ -1,3 +1,13 @@
 .env
 config.js
 shared/firebase-config.js
+
+# Firebase temporary files and logs
+firebase-debug.log
+*.log
+.firebase
+
+.firebase/
+*.log
+.vscode/
+ 
