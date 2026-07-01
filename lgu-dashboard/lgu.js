@@ -1,3 +1,7 @@
+// ==========================================
+// 1. IMPORTS & CONSTANTS
+// ==========================================
+
 /**
  * LGU Administrator Portal — live Firestore dashboard
  *
@@ -12,8 +16,6 @@ import {
   onSnapshot,
   doc,
   updateDoc,
-  query,
-  orderBy,
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 (function () {
@@ -34,6 +36,10 @@ import {
 
   const PLACEHOLDER_IMAGE =
     "https://images.unsplash.com/photo-1530587191325-3db32d826c18?q=80&w=400&auto=format&fit=crop";
+
+  // ==========================================
+  // 2. UTILITY FUNCTIONS
+  // ==========================================
 
   function normalizeStatus(rawStatus) {
     const key = String(rawStatus || "pending").trim().toLowerCase();
@@ -122,6 +128,10 @@ import {
     };
   }
 
+  // ==========================================
+  // 3. GLOBAL STATE & DOM ELEMENTS
+  // ==========================================
+
   let reports = [];
   let lastFilteredReports = [];
   let currentPage = 1;
@@ -148,11 +158,13 @@ import {
   const navReportsBtn = document.getElementById("nav-reports");
   const navMapBtn = document.getElementById("nav-map");
   const navAnalyticsBtn = document.getElementById("nav-analytics");
+  const navBarangayBtn = document.getElementById("nav-barangay");
   const navSettingsBtn = document.getElementById("nav-settings");
 
   const viewDashboardPanel = document.getElementById("view-dashboard-panel");
   const viewReportsPanel = document.getElementById("view-reports-panel");
   const viewMapPanel = document.getElementById("view-map-panel");
+  const viewAnalyticsPanel = document.getElementById("view-analytics-panel");
   const viewTitle = document.getElementById("view-title");
   const mainHeader = document.getElementById("main-header");
 
@@ -183,7 +195,10 @@ import {
   const modalBtnCloseSecondary = document.getElementById("modal-btn-close-secondary");
   const modalBtnSave = document.getElementById("modal-btn-save");
 
-  // --- CORE INITIALIZATION ---
+  // ==========================================
+  // 4. CORE & FIREBASE LOGIC
+  // ==========================================
+
   function init() {
     setupEventListeners();
     updateDateDisplay();
@@ -209,16 +224,28 @@ import {
   }
 
   function subscribeToReports() {
-    const reportsQuery = query(collection(db, "reports"), orderBy("createdAt", "desc"));
+    // IMPORTANT: Do NOT use orderBy("createdAt") here.
+    // Firestore silently excludes any document that is missing the ordered field,
+    // which causes KPI counts to show 0 when some reports lack a createdAt timestamp.
+    // We fetch ALL documents and sort client-side instead.
+    const reportsQuery = collection(db, "reports");
     unsubscribeReports = onSnapshot(
       reportsQuery,
       (snapshot) => {
-        reports = snapshot.docs.map(mapDocToReport);
+        // Map all docs then sort descending by createdAt client-side
+        reports = snapshot.docs
+          .map(mapDocToReport)
+          .sort((a, b) => {
+            const ta = a.createdAt ? a.createdAt.getTime() : 0;
+            const tb = b.createdAt ? b.createdAt.getTime() : 0;
+            return tb - ta;
+          });
         updateCategoryDropdown(reports);
         updateDashboardMetrics(reports);
         renderReportsTable();
         if (typeof updateRecentCriticalAlerts === "function") updateRecentCriticalAlerts();
         if (typeof renderMapMarkers === "function") renderMapMarkers();
+        if (typeof updateAnalyticsMetrics === "function") updateAnalyticsMetrics();
 
         if (selectedReport) {
           const fresh = reports.find((r) => r.docId === selectedReport.docId);
@@ -482,6 +509,8 @@ import {
     if (statProgressEl) statProgressEl.textContent = String(criticalCount);
     if (statResolvedEl) statResolvedEl.textContent = String(resolvedCount);
 
+
+
     // 2. Dynamic Map View Stats (Active non-resolved alerts)
     const activeAlerts = reports.filter(r => r.status !== "Resolved");
     const totalActive = activeAlerts.length;
@@ -526,7 +555,238 @@ import {
     if (document.getElementById("map-kpi-resolved")) document.getElementById("map-kpi-resolved").textContent = String(resolvedCount);
   }
 
-  // --- MAP LOGIC ---
+  function updateAnalyticsMetrics() {
+    const dateFilterEl = document.getElementById("analytics-date-filter");
+    const dateVal = dateFilterEl ? dateFilterEl.value : "7days";
+
+    const now = new Date();
+    let filtered = [...reports];
+
+    if (dateVal === "7days") {
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(now.getDate() - 7);
+      filtered = reports.filter(r => r.createdAt && r.createdAt >= sevenDaysAgo);
+    } else if (dateVal === "30days") {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(now.getDate() - 30);
+      filtered = reports.filter(r => r.createdAt && r.createdAt >= thirtyDaysAgo);
+    }
+
+    const totalCount = filtered.length;
+    const resolvedCount = filtered.filter(r => r.status === "Resolved").length;
+    const pendingCount = filtered.filter(r => r.status === "Pending Verification").length;
+
+    if (document.getElementById("analytics-stat-total")) document.getElementById("analytics-stat-total").textContent = String(totalCount);
+    if (document.getElementById("analytics-stat-resolved")) document.getElementById("analytics-stat-resolved").textContent = String(resolvedCount);
+    if (document.getElementById("analytics-stat-pending")) document.getElementById("analytics-stat-pending").textContent = String(pendingCount);
+
+    drawReportsOverTimeChart(filtered, dateVal);
+    drawCategoryDonutChart(filtered);
+
+    // Apply micro-animation refresh indicator
+    animateAnalyticsRefresh();
+  }
+
+  function animateAnalyticsRefresh() {
+    const targets = [
+      document.getElementById("analytics-stat-total"),
+      document.getElementById("analytics-stat-resolved"),
+      document.getElementById("analytics-stat-pending"),
+      document.getElementById("analytics-line-chart-container"),
+      document.getElementById("analytics-donut-chart"),
+      document.getElementById("analytics-donut-legend")
+    ];
+
+    targets.forEach(el => {
+      if (!el) return;
+      el.style.transition = "transform 0.12s ease, opacity 0.12s ease";
+      el.style.transform = "scale(0.97)";
+      el.style.opacity = "0.5";
+      setTimeout(() => {
+        el.style.transform = "scale(1)";
+        el.style.opacity = "1";
+      }, 150);
+    });
+  }
+
+  function drawReportsOverTimeChart(filtered, dateVal) {
+    const container = document.getElementById("analytics-line-chart-container");
+    if (!container) return;
+    container.innerHTML = "";
+
+    const daysCount = dateVal === "30days" ? 30 : 7;
+    const now = new Date();
+
+    const days = [];
+    for (let i = daysCount - 1; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(now.getDate() - i);
+      d.setHours(0, 0, 0, 0);
+      days.push(d);
+    }
+
+    const reportsCounts = Array(daysCount).fill(0);
+    const resolvedCounts = Array(daysCount).fill(0);
+
+    filtered.forEach(r => {
+      if (!r.createdAt) return;
+      const reportDate = new Date(r.createdAt);
+      reportDate.setHours(0, 0, 0, 0);
+
+      const index = days.findIndex(d => d.getTime() === reportDate.getTime());
+      if (index !== -1) {
+        reportsCounts[index]++;
+        if (r.status === "Resolved") {
+          resolvedCounts[index]++;
+        }
+      }
+    });
+
+    const width = container.clientWidth || 500;
+    const height = container.clientHeight || 250;
+    const paddingLeft = 40;
+    const paddingRight = 20;
+    const paddingTop = 20;
+    const paddingBottom = 40;
+
+    const chartWidth = width - paddingLeft - paddingRight;
+    const chartHeight = height - paddingTop - paddingBottom;
+
+    const maxVal = Math.max(...reportsCounts, ...resolvedCounts, 5);
+
+    const getX = (idx) => paddingLeft + (idx / (daysCount - 1)) * chartWidth;
+    const getY = (val) => paddingTop + chartHeight - (val / maxVal) * chartHeight;
+
+    let svgContent = `<svg width="100%" height="100%" viewBox="0 0 ${width} ${height}" class="overflow-visible">`;
+
+    const gridLines = 4;
+    for (let i = 0; i <= gridLines; i++) {
+      const val = Math.round((i / gridLines) * maxVal);
+      const y = getY(val);
+      svgContent += `
+        <line x1="${paddingLeft}" y1="${y}" x2="${width - paddingRight}" y2="${y}" stroke="#f1f5f9" stroke-width="1" />
+        <text x="${paddingLeft - 10}" y="${y + 4}" fill="#94a3b8" font-size="10" font-weight="700" text-anchor="end">${val}</text>
+      `;
+    }
+
+    const labelStep = daysCount === 30 ? 5 : 1;
+    days.forEach((day, idx) => {
+      if (idx % labelStep === 0) {
+        const x = getX(idx);
+        const dayLabel = day.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+        svgContent += `
+          <text x="${x}" y="${height - 15}" fill="#94a3b8" font-size="10" font-weight="700" text-anchor="middle">${dayLabel}</text>
+        `;
+      }
+    });
+
+    const buildPath = (data) => {
+      let d = "";
+      data.forEach((val, idx) => {
+        const x = getX(idx);
+        const y = getY(val);
+        d += (idx === 0) ? `M ${x} ${y}` : ` L ${x} ${y}`;
+      });
+      return d;
+    };
+
+    const reportsPath = buildPath(reportsCounts);
+    svgContent += `
+      <path d="${reportsPath}" fill="none" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+    `;
+
+    if (daysCount === 7) {
+      reportsCounts.forEach((val, idx) => {
+        svgContent += `
+          <circle cx="${getX(idx)}" cy="${getY(val)}" r="3.5" fill="#2563eb" stroke="#ffffff" stroke-width="1.5" />
+        `;
+      });
+    }
+
+    const resolvedPath = buildPath(resolvedCounts);
+    svgContent += `
+      <path d="${resolvedPath}" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+    `;
+
+    if (daysCount === 7) {
+      resolvedCounts.forEach((val, idx) => {
+        svgContent += `
+          <circle cx="${getX(idx)}" cy="${getY(val)}" r="3.5" fill="#10b981" stroke="#ffffff" stroke-width="1.5" />
+        `;
+      });
+    }
+
+    svgContent += `</svg>`;
+    container.innerHTML = svgContent;
+  }
+
+  function drawCategoryDonutChart(filtered) {
+    const donutEl = document.getElementById("analytics-donut-chart");
+    const legendEl = document.getElementById("analytics-donut-legend");
+    if (!donutEl || !legendEl) return;
+
+    legendEl.innerHTML = "";
+    if (filtered.length === 0) {
+      donutEl.style.background = "#e2e8f0";
+      legendEl.innerHTML = `<p class="text-xs text-slate-400 italic text-center py-4">No data available</p>`;
+      return;
+    }
+
+    const counts = {};
+    filtered.forEach(r => {
+      const cat = r.category || "Uncategorized";
+      counts[cat] = (counts[cat] || 0) + 1;
+    });
+
+    const items = Object.keys(counts).map(key => ({
+      name: key,
+      count: counts[key],
+      pct: Math.round((counts[key] / filtered.length) * 100)
+    }));
+    items.sort((a, b) => b.count - a.count);
+
+    let displayItems = [];
+    if (items.length <= 4) {
+      displayItems = items;
+    } else {
+      displayItems = items.slice(0, 3);
+      const othersCount = items.slice(3).reduce((sum, item) => sum + item.count, 0);
+      const othersPct = Math.round((othersCount / filtered.length) * 100);
+      displayItems.push({ name: "Others", count: othersCount, pct: othersPct });
+    }
+
+    const colorPalette = ["#10b981", "#3b82f6", "#f59e0b", "#f97316", "#94a3b8"];
+
+    let currentPct = 0;
+    const gradientParts = [];
+
+    displayItems.forEach((item, idx) => {
+      const color = colorPalette[idx % colorPalette.length];
+      item.color = color;
+
+      const start = currentPct;
+      currentPct += item.pct;
+      gradientParts.push(`${color} ${start}% ${currentPct}%`);
+
+      const row = document.createElement("div");
+      row.className = "flex items-center justify-between";
+      row.innerHTML = `
+        <span class="flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full flex-shrink-0" style="background-color: ${color}"></span>
+          <span class="truncate max-w-[120px]">${item.name}</span>
+        </span>
+        <span class="font-bold text-slate-800">${item.pct}%</span>
+      `;
+      legendEl.appendChild(row);
+    });
+
+    donutEl.style.background = `conic-gradient(${gradientParts.join(", ")})`;
+  }
+
+  // ==========================================
+  // 5. MAP LOGIC
+  // ==========================================
+
   function initLeafletMap() {
     if (!mapInstance && document.getElementById("lgu-map")) {
       mapInstance = L.map("lgu-map").setView([14.5995, 120.9842], 13);
@@ -789,9 +1049,12 @@ import {
     updateHeatmap();
   }
 
-  // --- UI & NAVIGATION LOGIC ---
+  // ==========================================
+  // 6. UI & NAVIGATION LOGIC
+  // ==========================================
+
   function switchView(viewName) {
-    const navButtons = [navDashboardBtn, navReportsBtn, navMapBtn, navAnalyticsBtn, navSettingsBtn];
+    const navButtons = [navDashboardBtn, navReportsBtn, navMapBtn, navAnalyticsBtn, navBarangayBtn, navSettingsBtn];
 
     // 1. Reset all buttons to inactive state
     navButtons.forEach((btn) => {
@@ -805,6 +1068,7 @@ import {
     viewDashboardPanel.classList.add("hidden");
     viewReportsPanel.classList.add("hidden");
     viewMapPanel.classList.add("hidden");
+    if (viewAnalyticsPanel) viewAnalyticsPanel.classList.add("hidden");
 
     // 3. Activate selected view and apply correct emerald highlights
     if (viewName === "dashboard") {
@@ -831,9 +1095,18 @@ import {
         if (typeof updateRecentCriticalAlerts === "function") updateRecentCriticalAlerts();
         renderMapMarkers();
         refreshMapSizes(100);
+      } else if (viewName === "analytics") {
+        if (viewAnalyticsPanel) viewAnalyticsPanel.classList.remove("hidden");
+        if (navAnalyticsBtn) navAnalyticsBtn.classList.add("bg-emerald-50", "text-emerald-700", "border-emerald-500", "font-bold");
+        if (viewTitle) viewTitle.textContent = "Analytics Overview";
+        updateAnalyticsMetrics();
       }
     }
   }
+
+  // ==========================================
+  // 7. REPORTS TABLE LOGIC
+  // ==========================================
 
   // Track active sub-filter tab and dropdown states globally
   let currentStatusFilter = "all";
@@ -927,9 +1200,10 @@ import {
 
     renderPaginationControls(totalPages);
 
-    paginatedList.forEach((report) => {
+    paginatedList.forEach((report, index) => {
       const tr = document.createElement("tr");
-      tr.className = "hover:bg-slate-50/80 transition-colors border-b border-slate-100 align-middle";
+      tr.className = "animate-table-row hover:bg-slate-50/80 transition-colors border-b border-slate-100 align-middle";
+      tr.style.animationDelay = `${index * 0.05}s`;
 
       // 1. Calculate Status Badge Styles
       let badgeColorClass = "bg-slate-100 text-slate-700 border border-slate-200";
@@ -1037,7 +1311,10 @@ import {
     });
   }
 
-  // --- MODAL LOGIC ---
+  // ==========================================
+  // 8. MODAL LOGIC
+  // ==========================================
+
   function populateModal(report) {
     modalReportId.textContent = `Report #${report.id}`;
     modalCategory.textContent = report.category;
@@ -1145,15 +1422,19 @@ import {
     });
   }
 
-  // --- EVENT LISTENERS & SETUP ---
+  // ==========================================
+  // 9. EVENT LISTENERS
+  // ==========================================
+
   function setupEventListeners() {
     // Navigation Routing
     if (navDashboardBtn) navDashboardBtn.addEventListener("click", () => switchView("dashboard"));
     if (navReportsBtn) navReportsBtn.addEventListener("click", () => switchView("reports"));
     if (navMapBtn) navMapBtn.addEventListener("click", () => switchView("map"));
+    if (navAnalyticsBtn) navAnalyticsBtn.addEventListener("click", () => switchView("analytics"));
 
     const comingSoonButtons = [
-      navAnalyticsBtn,
+      navBarangayBtn,
       document.getElementById("nav-tasks"),
       document.getElementById("nav-routes"),
       document.getElementById("nav-insights"),
@@ -1169,6 +1450,37 @@ import {
           showToast(featureName);
         });
       }
+    });
+
+    const analyticsDateFilter = document.getElementById("analytics-date-filter");
+    if (analyticsDateFilter) {
+      analyticsDateFilter.addEventListener("change", updateAnalyticsMetrics);
+    }
+
+    const analyticsBrgyFilter = document.getElementById("analytics-brgy-filter");
+    if (analyticsBrgyFilter) {
+      analyticsBrgyFilter.addEventListener("click", function () {
+        showToast("Barangay filtering");
+      });
+    }
+
+    // --- Analytics Simulated Table Row Click Handlers ---
+    const analyticsTableRows = document.querySelectorAll("#view-analytics-panel table tbody tr");
+    analyticsTableRows.forEach(row => {
+      row.classList.add("cursor-pointer", "hover:bg-slate-50", "transition-colors");
+      row.addEventListener("click", () => {
+        showToast("Barangay Drill-down (In Development)");
+      });
+    });
+
+    // --- Analytics Simulated Bar Graph Column Click Handlers ---
+    // Fix: Escaped the colon in the Tailwind class to prevent SyntaxError in querySelectorAll
+    const responseTimeBars = document.querySelectorAll("#view-analytics-panel .lg\\:col-span-5 .flex-1.flex.items-end > div");
+    responseTimeBars.forEach(barCol => {
+      barCol.classList.add("cursor-pointer", "hover:opacity-80", "transition-opacity");
+      barCol.addEventListener("click", () => {
+        showToast("Response Time Drill-down (In Development)");
+      });
     });
 
     setupSidebarToggle();
@@ -1462,7 +1774,10 @@ import {
     setupTabFilters();
   }
 
-  // Final Execution Hook
+  // ==========================================
+  // 10. EXECUTION HOOK
+  // ==========================================
+
   document.addEventListener("DOMContentLoaded", init);
 
 })();

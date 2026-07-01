@@ -1,3 +1,7 @@
+// ==========================================
+// 1. IMPORTS & CONFIG
+// ==========================================
+
 /**
  * Basura-Pin — Photo capture & Gemini AI validation
  *
@@ -28,6 +32,10 @@ const VALIDATOR_PROMPT_BASE =
   'Step 1: If there is absolutely NO trash visible, return the exact JSON: `{"valid": false, "error": "No waste detected"}`. ' +
   'Step 2: If ANY trash is visible, return valid: true. Estimate the volume using recognizable metrics (e.g., "Sack-sized", "1-2 cubic meters", "Small pile", "Loose litter"). ' +
   'Step 3: Rate the severity score from 1 (minor litter/contained in bin) to 5 (critical block of road/drainage or massive dumpsite). Return JSON: `{"valid": true, "volume": "[estimate]", "severity_score": [1-5]}`.';
+
+// ==========================================
+// 2. DOM ELEMENTS & STATE
+// ==========================================
 
 // DOM references
 const photoInput = document.getElementById("trash-photo-input");
@@ -255,9 +263,9 @@ function getErrorMessage(error) {
   return error.message || "Unknown error. Please try again.";
 }
 
-// ---------------------------------------------------------------------------
-// Photo preview (no API call on selection)
-// ---------------------------------------------------------------------------
+// ==========================================
+// 3. CAMERA & FILE UPLOAD LOGIC
+// ==========================================
 
 /** Revoke the previous blob URL to free memory */
 function revokePreviewUrl() {
@@ -301,9 +309,9 @@ if (photoInput) {
   });
 }
 
-// ---------------------------------------------------------------------------
-// Gemini API
-// ---------------------------------------------------------------------------
+// ==========================================
+// 4. GEMINI AI ANALYSIS
+// ==========================================
 
 /**
  * fetch wrapper with AbortController timeout so hung requests never block the UI.
@@ -439,9 +447,10 @@ function extractJsonFromGeminiResponse(data) {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Leaflet Map & Location Logic
-// ---------------------------------------------------------------------------
+// ==========================================
+// 5. GEOLOCATION LOGIC
+// ==========================================
+
 const mapModal = document.getElementById("map-modal");
 const openMapBtn = document.getElementById("open-map-btn");
 const closeMapIcon = document.getElementById("close-map-icon");
@@ -563,11 +572,10 @@ gpsBtn?.addEventListener("click", () => {
   }
 });
 
-// ---------------------------------------------------------------------------
-// Submit handler
-// ---------------------------------------------------------------------------
+// ==========================================
+// 6. FIREBASE SUBMISSION LOGIC
+// ==========================================
 
-/** Update #ai-summary and open the appropriate flash modal */
 /** Update #ai-summary and open the appropriate flash modal */
 function handleValidationResult(result, reporter, reportId, contact) {
   if (result.valid === true) {
@@ -714,9 +722,10 @@ if (submitBtn) {
     }
   });
 
-  // ---------------------------------------------------------------------------
-  // Nominatim Autocomplete Logic for Location Search
-  // ---------------------------------------------------------------------------
+  // ==========================================
+  // 7. UI/UX EVENT LISTENERS
+  // ==========================================
+
   const mapSearchInput = document.getElementById("map-search-input");
   const searchSuggestions = document.getElementById("search-suggestions");
   const clearSearchBtn = document.getElementById("clear-search-btn");
