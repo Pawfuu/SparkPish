@@ -24,7 +24,10 @@ const API_URL =
 
 /** Base validator prompt — reporter notes appended at submit time if provided */
 const VALIDATOR_PROMPT_BASE =
-  'Analyze this image. Step 1: Does this image clearly show uncollected solid waste, garbage, or an illegal dumpsite? Step 2: If false, return the exact JSON: `{"valid": false, "error": "No waste detected"}`. Step 3: If true, estimate the volume and rate the severity of the waste accumulation from 1 (minor) to 5 (critical health/environmental hazard). Return JSON: `{"valid": true, "volume": "[estimate]", "severity_score": [1-5]}`.';
+  'Analyze this image for any visible trash, garbage, or litter. ' +
+  'Step 1: If there is absolutely NO trash visible, return the exact JSON: `{"valid": false, "error": "No waste detected"}`. ' +
+  'Step 2: If ANY trash is visible, return valid: true. Estimate the volume using recognizable metrics (e.g., "Sack-sized", "1-2 cubic meters", "Small pile", "Loose litter"). ' +
+  'Step 3: Rate the severity score from 1 (minor litter/contained in bin) to 5 (critical block of road/drainage or massive dumpsite). Return JSON: `{"valid": true, "volume": "[estimate]", "severity_score": [1-5]}`.';
 
 // DOM references
 const photoInput = document.getElementById("trash-photo-input");
@@ -47,6 +50,7 @@ if (!photoInput || !summaryEl || !submitBtn) {
 let selectedFile = null;
 let previewObjectUrl = null;
 let isSubmitting = false;
+let isReportComplete = false;
 
 // Map state
 let finalCoordinates = null;
@@ -132,8 +136,10 @@ function updateStepper() {
   if (selectedFile && categoryEl?.value && contactEl?.validity.valid) {
     activeStep = 3; // Required details filled
   }
-  if (isSubmitting) {
-    activeStep = 4; // User clicked submit
+
+  // Keep at step 4 if submitting OR if the report is finishe
+  if (isSubmitting || isReportComplete) {
+    activeStep = 4; 
   }
 
   const steps = document.querySelectorAll(".stepper-step");
@@ -290,6 +296,8 @@ if (photoInput) {
 
     selectedFile = file;
     showPhotoPreview(file);
+
+    photoInput.value = ""; // Clear the input value so selecting the same file again still triggers the change event
   });
 }
 
@@ -603,26 +611,18 @@ if (submitBtn) {
     }
 
     if (!selectedFile) {
-      setSummary("Please snap a trash photo before submitting your report.");
       if (typeof window.showErrorModal === "function") {
-        window.showErrorModal(
-          "Please snap a trash photo before submitting your report.",
-        ); // Pass the exact string!
+        window.showErrorModal("Please snap a trash photo before submitting your report.");
       }
       return;
     }
 
     const reportForm = getReportFormData();
     if (!reportForm.wasteType) {
-      setSummary(
-        "Please select a trash category before submitting your report.",
-      );
       if (typeof window.showErrorModal === "function") {
-        window.showErrorModal(
-          "Please select a trash category before submitting your report.",
-        ); // Pass the exact string!
+        window.showErrorModal("Please select a trash category before submitting your report.");
       }
-      return;
+      return; // Keeps the preview perfectly intact on early exit
     }
 
     const reporter = getReporterData();
@@ -675,13 +675,15 @@ if (submitBtn) {
         location: finalAddress || getReportLocation(),
         coordinates: finalCoordinates || null,
         contactInfo: contactValue,
-        reporterName: reporterName || "Anonymous", // ✨ FIXED: Use the string directly!
+        reporterName: reporterName || "Anonymous", 
         notes: reporter.notes,
         severityScore: result.severity_score != null ? result.severity_score : 3,
       };
 
 
       const reportId = await submitTrashReport(reportData, selectedFile);
+      
+      isReportComplete = true;
 
       console.log("Basura-Pin report submitted:", {
         reporter: reporter,
@@ -808,4 +810,23 @@ if (submitBtn) {
       searchSuggestions.classList.add("hidden");
     }
   });
+
+// ---------------------------------------------------------------------------
+// App Reset Logic
+// ---------------------------------------------------------------------------
+// When the user dismisses the success modal, reset the internal app state back to Step 1
+document.getElementById("close-success-modal")?.addEventListener("click", () => {
+  selectedFile = null;
+  isReportComplete = false;
+  finalCoordinates = null;
+  finalAddress = "";
+  
+  // Clear the map search bar explicitly
+  const searchInput = document.getElementById("map-search-input");
+  if (searchInput) searchInput.value = "";
+  document.getElementById("clear-search-btn")?.classList.add("hidden");
+  
+  // Recalculate the stepper (will drop back to Step 1)
+  updateStepper(); 
+});
 }

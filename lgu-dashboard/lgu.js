@@ -42,17 +42,27 @@ import {
 
   function mapDocToReport(docSnap) {
     const data = docSnap.data();
+    
+    // Safely parse the location whether it's a string or an object
+    let safeLocation = "Unknown Location";
+    if (typeof data.location === "string") {
+      safeLocation = data.location;
+    } else if (typeof data.location === "object" && data.location !== null) {
+      // Extract the human-readable address from the object
+      safeLocation = data.location.display_name || data.location.address || data.location.name || "Map Pin Location";
+    }
+
     return {
       docId: docSnap.id,
       reportId: docSnap.id,
       id: docSnap.id.slice(0, 8).toUpperCase(),
-      category: data.wasteType || "Uncategorized",
-      location: data.location || "Unknown location",
+      category: data.wasteType || "Uncategorized",      
+      location: safeLocation,
       coordinates: data.coordinates || null,
       submittedBy: data.reporterName || "Anonymous",
-      contactInfo: data.contactInfo || "Not Provided",
+      contactInfo: data.contactInfo || "Not Provided",  
       status: normalizeStatus(data.status),
-      aiVolume: data.volumeEstimate || "N/A",
+      aiVolume: data.volumeEstimate || "N/A",           
       severity: data.severityScore != null ? Number(data.severityScore) : 0,
       notes: data.notes || "",
       imageUrl: data.imageUrl || null,
@@ -203,14 +213,27 @@ import {
 
   function getReportLatLng(report) {
     const coords = report.coordinates;
-    if (coords && typeof coords.lat === "number" && typeof coords.lng === "number") {
-      return [coords.lat, coords.lng];
-    }
-    if (Array.isArray(coords) && coords.length >= 2) {
-      return [coords[0], coords[1]];
+    
+    // Safely extract and convert string coordinates to actual floating-point numbers
+    if (coords && coords.lat != null && coords.lng != null) {
+      const parsedLat = parseFloat(coords.lat);
+      const parsedLng = parseFloat(coords.lng);
+      
+      // Make sure the parsing actually resulted in valid numbers
+      if (!isNaN(parsedLat) && !isNaN(parsedLng)) {
+        return [parsedLat, parsedLng];
+      }
     }
     
-    // GPS Fallback
+    if (Array.isArray(coords) && coords.length >= 2) {
+      const parsedLat = parseFloat(coords[0]);
+      const parsedLng = parseFloat(coords[1]);
+      if (!isNaN(parsedLat) && !isNaN(parsedLng)) {
+        return [parsedLat, parsedLng];
+      }
+    }
+    
+    // GPS Fallback to Manila center if everything else completely fails
     let hash = 0;
     for (let i = 0; i < report.id.length; i++) hash = report.id.charCodeAt(i) + ((hash << 5) - hash);
     const randomOffsetLat = (Math.abs(hash) % 100) / 15000;
