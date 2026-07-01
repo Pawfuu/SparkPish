@@ -251,10 +251,17 @@
         padding-left: 0.875rem;
       }
     }
+
+    /* Move Leaflet zoom controls below our Active Alerts floating card */
+    .leaflet-top.leaflet-left {
+      top: 140px !important;
+      left: 10px !important;
+    }
   </style>
   <!-- Leaflet Map CSS and JS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link class="leaflet-css" rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
 </head>
 
 <body class="bg-[#f8fafc] text-slate-800 antialiased min-h-screen flex">
@@ -746,7 +753,7 @@
         <!-- Filter Control Toolbar -->
         <div
           class="bg-white p-4 rounded-xl border border-slate-200 flex flex-col xl:flex-row gap-4 items-center justify-between shadow-sm">
-          <div class="flex flex-col sm:flex-row flex-wrap items-center gap-3 w-full xl:w-auto">
+          <div class="flex flex-col sm:flex-row flex-wrap items-center gap-3 w-full xl:w-auto z-[600]">
             <!-- Search reports input -->
             <div class="relative w-full sm:w-64">
               <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
@@ -756,34 +763,67 @@
                 </svg>
               </div>
               <input id="report-search-input" type="text" placeholder="Search reports..."
-                class="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all" />
+                class="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all shadow-sm" />
             </div>
 
-            <!-- Status filter dropdown -->
-            <select id="status-filter-select"
-              class="w-full sm:w-auto bg-slate-50 border border-slate-200 text-slate-700 text-xs rounded-lg px-3 py-2 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all cursor-pointer">
-              <option value="all" selected>All Status</option>
-              <option value="Pending Verification">Pending Verification</option>
-              <option value="In Progress">In Progress</option>
-              <option value="Resolved">Resolved</option>
-            </select>
+            <!-- 1. Custom Status Dropdown -->
+            <div class="relative w-full sm:w-auto">
+              <button type="button" id="reports-dropdown-status-btn"
+                class="flex items-center justify-between w-full sm:w-40 bg-white border border-slate-200 hover:border-emerald-300 text-slate-700 text-xs rounded-lg pl-3 pr-2 py-2 font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all shadow-sm">
+                <span id="reports-dropdown-status-text" class="truncate">All Status</span>
+                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="2"
+                  viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              <div id="reports-dropdown-status-menu"
+                class="absolute top-full left-0 mt-1 w-full sm:w-44 bg-white border border-slate-100 rounded-xl shadow-lg hidden overflow-hidden py-1">
+                <div
+                  class="px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 cursor-pointer transition-colors"
+                  data-value="all">All Status</div>
+                <div
+                  class="px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 cursor-pointer transition-colors"
+                  data-value="Pending Verification">Pending Verification</div>
+                <div
+                  class="px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 cursor-pointer transition-colors"
+                  data-value="In Progress">In Progress</div>
+                <div
+                  class="px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 cursor-pointer transition-colors"
+                  data-value="Resolved">Resolved</div>
+              </div>
+            </div>
 
-            <!-- Category filter dropdown -->
-            <select id="category-filter-select"
-              class="w-full sm:w-auto bg-slate-50 border border-slate-200 text-slate-700 text-xs rounded-lg px-3 py-2 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all cursor-pointer">
-              <option value="all" selected>All Categories</option>
-            </select>
+            <!-- 2. Custom Category Dropdown -->
+            <div class="relative w-full sm:w-auto">
+              <button type="button" id="reports-dropdown-category-btn"
+                class="flex items-center justify-between w-full sm:w-40 bg-white border border-slate-200 hover:border-emerald-300 text-slate-700 text-xs rounded-lg pl-3 pr-2 py-2 font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all shadow-sm">
+                <span id="reports-dropdown-category-text" class="truncate">All Categories</span>
+                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="2"
+                  viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              <div id="reports-dropdown-category-menu"
+                class="absolute top-full left-0 mt-1 w-full sm:w-40 bg-white border border-slate-100 rounded-xl shadow-lg hidden overflow-y-auto max-h-48 py-1 custom-scrollbar">
+                <!-- Injected via JS -->
+              </div>
+            </div>
 
-            <!-- Barangay filter dropdown -->
-            <select id="barangay-filter-select"
-              class="w-full sm:w-auto bg-slate-50 border border-slate-200 text-slate-700 text-xs rounded-lg px-3 py-2 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all cursor-pointer">
-              <option value="all" selected>All Barangays</option>
-              <option value="coming-soon">Coming Soon...</option>
-            </select>
+            <!-- 3. Custom Barangay Dropdown -->
+            <div class="relative w-full sm:w-auto">
+              <button type="button" id="reports-dropdown-barangay-btn"
+                class="flex items-center justify-between w-full sm:w-40 bg-white border border-slate-200 hover:border-emerald-300 text-slate-700 text-xs rounded-lg pl-3 pr-2 py-2 font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all shadow-sm">
+                <span class="truncate">All Barangays</span>
+                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="2"
+                  viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+            </div>
 
-            <!-- Filter button (functions as Reset Filters) -->
+            <!-- Filter Reset Button -->
             <button id="filter-btn"
-              class="w-full sm:w-auto px-4 py-2 border border-slate-200 rounded-lg text-xs font-bold text-emerald-600 bg-white hover:bg-slate-50 transition-colors flex items-center justify-center gap-1.5 cursor-pointer">
+              class="w-full sm:w-auto px-4 py-2 border border-slate-200 rounded-lg text-xs font-bold text-emerald-600 bg-white hover:bg-slate-50 shadow-sm transition-colors flex items-center justify-center gap-1.5 cursor-pointer">
               <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2"
                 viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round"
@@ -793,14 +833,28 @@
             </button>
           </div>
 
-          <!-- Sort Select -->
-          <div class="flex items-center gap-3 w-full xl:w-auto justify-end">
+          <!-- 4. Sort Select (By Date) -->
+          <div class="flex items-center gap-3 w-full xl:w-auto justify-end z-[600]">
             <span class="text-xs font-semibold text-slate-500 uppercase">Sort By:</span>
-            <select id="sort-select"
-              class="bg-slate-50 border border-slate-200 text-slate-700 text-xs rounded-lg px-3 py-2 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all cursor-pointer">
-              <option value="id-desc" selected>Report ID (Newest)</option>
-              <option value="id-asc">Report ID (Oldest)</option>
-            </select>
+            <div class="relative w-full sm:w-auto">
+              <button type="button" id="reports-dropdown-sort-btn"
+                class="flex items-center justify-between w-full sm:w-48 bg-white border border-slate-200 hover:border-emerald-300 text-slate-700 text-xs rounded-lg pl-3 pr-2 py-2 font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all shadow-sm">
+                <span id="reports-dropdown-sort-text" class="truncate">Reported At (Newest)</span>
+                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="2"
+                  viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              <div id="reports-dropdown-sort-menu"
+                class="absolute top-full right-0 mt-1 w-full sm:w-48 bg-white border border-slate-100 rounded-xl shadow-lg hidden overflow-hidden py-1">
+                <div
+                  class="px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 cursor-pointer transition-colors"
+                  data-value="date-desc">Reported At (Newest)</div>
+                <div
+                  class="px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 cursor-pointer transition-colors"
+                  data-value="date-asc">Reported At (Oldest)</div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -861,13 +915,340 @@
            VIEW 3: LIVE REPORTS MAP PANEL (Hidden by Default)
            ======================================================== -->
       <section id="view-map-panel" class="space-y-6 hidden">
+        <!-- Title & Subtitle -->
         <div class="flex items-center justify-between">
-          <h3 class="text-xl font-bold text-slate-900">Live Reports Map</h3>
+          <div>
+            <h3 class="text-xl font-bold text-slate-900 font-display">Live Spatial Alert Map</h3>
+            <p class="text-xs text-slate-500 mt-0.5">Real-time overview of reported waste issues</p>
+          </div>
         </div>
+
+        <!-- Top Filters Toolbar (Above Map) TESTING
         <div
-          class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden h-[600px] w-full relative z-0">
-          <div id="lgu-map" class="absolute inset-0 w-full h-full"></div>
+          class="bg-white px-5 py-3.5 rounded-2xl border border-slate-200/80 flex flex-wrap items-center justify-between shadow-sm gap-4">
+          <div class="flex flex-wrap items-center gap-6"> -->
+        <!-- Status Dropdown -->
+        <!-- <div class="flex items-center gap-2">
+              <span class="text-xs font-semibold text-slate-500">Status</span>
+              <select id="map-filter-status"
+                class="bg-white border border-slate-200 text-slate-700 text-xs rounded-lg px-3 py-1.5 font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer hover:bg-slate-50 transition-colors">
+                <option value="all">Filter Reports (All)</option>
+                <option value="Pending Verification">Pending Verification</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Resolved">Resolved</option>
+              </select>
+            </div> -->
+
+        <!-- Category Dropdown -->
+        <!-- <div class="flex items-center gap-2">
+              <span class="text-xs font-semibold text-slate-500">Category</span>
+              <select id="map-filter-category"
+                class="bg-white border border-slate-200 text-slate-700 text-xs rounded-lg px-3 py-1.5 font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer hover:bg-slate-50 transition-colors">
+                <option value="all">All Categories</option>
+              </select>
+            </div>  -->
+
+        <!-- Top Filters Toolbar (Above Map) -->
+        <div
+          class="bg-white px-5 py-3.5 rounded-2xl border border-slate-200/80 flex flex-wrap items-center justify-between shadow-sm gap-4">
+          <div class="flex flex-wrap items-center gap-6">
+
+            <!-- 1. CUSTOM STATUS DROPDOWN -->
+            <div class="flex items-center gap-2 relative">
+              <span class="text-xs font-semibold text-slate-500">Status</span>
+              <button type="button" id="dropdown-status-btn"
+                class="flex items-center justify-between w-44 bg-white border border-slate-200 hover:border-emerald-300 text-slate-700 text-xs rounded-lg pl-3 pr-2 py-1.5 font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all shadow-sm">
+                <span id="dropdown-status-text" class="truncate">Filter Reports (All)</span>
+                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="2"
+                  viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              <!-- Custom Status Menu (Hidden by default) -->
+              <div id="dropdown-status-menu"
+                class="absolute top-full right-0 mt-1.5 w-44 bg-white border border-slate-100 rounded-xl shadow-lg z-[500] hidden overflow-hidden py-1">
+                <div
+                  class="px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 cursor-pointer transition-colors"
+                  data-value="all">Filter Reports (All)</div>
+                <div
+                  class="px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 cursor-pointer transition-colors"
+                  data-value="Pending Verification">Pending Verification</div>
+                <div
+                  class="px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 cursor-pointer transition-colors"
+                  data-value="In Progress">In Progress</div>
+                <div
+                  class="px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 cursor-pointer transition-colors"
+                  data-value="Resolved">Resolved</div>
+              </div>
+            </div>
+
+            <!-- 2. CUSTOM CATEGORY DROPDOWN -->
+            <div class="flex items-center gap-2 relative">
+              <span class="text-xs font-semibold text-slate-500">Category</span>
+              <button type="button" id="dropdown-category-btn"
+                class="flex items-center justify-between w-40 bg-white border border-slate-200 hover:border-emerald-300 text-slate-700 text-xs rounded-lg pl-3 pr-2 py-1.5 font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all shadow-sm">
+                <span id="dropdown-category-text" class="truncate">All Categories</span>
+                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="2"
+                  viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              <!-- Custom Category Menu (Hidden by default) -->
+              <div id="dropdown-category-menu"
+                class="absolute top-full right-0 mt-1.5 w-40 bg-white border border-slate-100 rounded-xl shadow-lg z-[500] hidden overflow-y-auto max-h-48 py-1 custom-scrollbar">
+                <!-- Javascript will inject categories here -->
+              </div>
+            </div>
+
+            <!-- Severity Filter Pills Group -->
+            <div class="h-6 w-px bg-slate-200 hidden xl:block"></div>
+            <div class="flex items-center gap-2 bg-slate-50 border border-slate-200/60 p-1.5 rounded-xl">
+              <!-- All button -->
+              <button type="button"
+                class="px-3.5 py-1.5 text-xs font-bold rounded-lg border border-emerald-500 bg-emerald-50 text-emerald-800 shadow-sm cursor-default select-none transition-all">
+                All
+              </button>
+
+              <!-- Low Checkbox styled as pill -->
+              <label
+                class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-600 rounded-lg cursor-pointer border border-transparent has-[:checked]:border-slate-200 has-[:checked]:bg-slate-100/60 has-[:checked]:text-slate-900 select-none transition-all hover:bg-slate-100">
+                <input type="checkbox" id="map-severity-low" checked class="sr-only peer">
+                <span
+                  class="w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-100 peer-checked:ring-emerald-400"></span>
+                <span>Low</span>
+              </label>
+
+              <!-- Medium Checkbox styled as pill -->
+              <label
+                class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-600 rounded-lg cursor-pointer border border-transparent has-[:checked]:border-slate-200 has-[:checked]:bg-slate-100/60 has-[:checked]:text-slate-900 select-none transition-all hover:bg-slate-100">
+                <input type="checkbox" id="map-severity-medium" checked class="sr-only peer">
+                <span
+                  class="w-2 h-2 rounded-full bg-amber-500 ring-4 ring-amber-100 peer-checked:ring-amber-400 transition-all"></span>
+                <span>Medium</span>
+              </label>
+
+              <!-- High Checkbox styled as pill -->
+              <label
+                class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-600 rounded-lg cursor-pointer border border-transparent has-[:checked]:border-slate-200 has-[:checked]:bg-slate-100/60 has-[:checked]:text-slate-900 select-none transition-all hover:bg-slate-100">
+                <input type="checkbox" id="map-severity-high" checked class="sr-only peer">
+                <span
+                  class="w-2.5 h-2.5 rounded-full bg-rose-600 ring-4 ring-rose-100 peer-checked:ring-rose-400 transition-all"></span>
+                <span>High</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Filters Action Button -->
+          <button type="button" id="map-btn-filters"
+            class="border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 text-xs font-bold rounded-xl px-4 py-2.5 shadow-sm transition-all flex items-center gap-2 cursor-pointer">
+            <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2"
+              viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round"
+                d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+            </svg>
+            <span>Filters</span>
+          </button>
         </div>
+
+        <!-- Main Map & Sidebar Grid Layout -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[620px]">
+          <!-- Left: Map Container -->
+          <div
+            class="lg:col-span-8 bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden h-full relative z-0">
+            <!-- Leaflet Map Container -->
+            <div id="lgu-map" class="w-full h-full absolute inset-0"></div>
+
+            <!-- Overlay Card 1: Active Alerts (Top-Left) -->
+            <div
+              class="absolute top-4 left-4 z-[400] bg-white/95 border border-slate-100 p-5 rounded-2xl shadow-xl w-36 pointer-events-auto">
+              <span class="text-[10px] font-black uppercase text-slate-400 tracking-wider">Filtered Alerts</span>
+              <div class="text-3xl font-black text-slate-900 mt-1 leading-none tracking-tight"
+                id="map-active-alerts-val">--</div>
+              <span id="map-active-new-indicator"
+                class="text-[10px] font-bold text-slate-400 mt-2 flex items-center gap-1">
+                Calculating...
+              </span>
+            </div>
+
+            <!-- Overlay Card 2: Alert Severity (Bottom-Left) -->
+            <div
+              class="absolute bottom-16 left-4 z-[400] bg-white/95 border border-slate-100 p-5 rounded-2xl shadow-xl w-44 pointer-events-auto">
+              <span class="text-[10px] font-black uppercase text-slate-400 tracking-wider mb-2.5 block">Alert
+                Severity</span>
+              <div class="space-y-2 text-xs font-bold text-slate-700">
+                <div class="flex items-center justify-between">
+                  <span class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-100"></span>
+                    Low
+                  </span>
+                  <span class="text-slate-900" id="map-severity-low-val">--</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-amber-500 ring-2 ring-amber-100"></span>
+                    Medium
+                  </span>
+                  <span class="text-slate-900" id="map-severity-medium-val">--</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-rose-500 ring-2 ring-rose-100"></span>
+                    High
+                  </span>
+                  <span class="text-slate-900" id="map-severity-high-val">--</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Overlay Button 3: Re-center Map (Bottom-Middle) -->
+            <div class="absolute bottom-4 left-1/2 -translate-x-1/2 z-[400] pointer-events-auto">
+              <button type="button"
+                onclick="if(window.mapInstance) window.mapInstance.setView([14.5995, 120.9842], 12);"
+                class="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-black rounded-xl shadow-lg transition-colors flex items-center gap-2 cursor-pointer border border-emerald-600/40">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19 12a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <span>Re-center Map</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Right: Sidebar Panel (Layers & Alerts) -->
+          <div class="lg:col-span-4 flex flex-col gap-6 h-full overflow-hidden">
+            <!-- Map Layers Card -->
+            <div class="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex flex-col flex-shrink-0">
+              <div class="flex items-center justify-between mb-4">
+                <h4 class="text-xs font-black uppercase text-slate-400 tracking-wider">Map Layers</h4>
+                <button type="button"
+                  onclick="document.querySelectorAll('.sr-only.peer').forEach(cb => { if(cb.id !== 'layer-toggle-markers') cb.checked = false; else cb.checked = true; cb.dispatchEvent(new Event('change')); });"
+                  class="text-xs font-bold text-slate-500 hover:text-emerald-700 flex items-center gap-1 cursor-pointer transition-colors">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 8H18.5" />
+                  </svg>
+                  Reset
+                </button>
+              </div>
+              <div class="space-y-4">
+                <!-- Heatmap Toggle -->
+                <div class="flex items-center justify-between">
+                  <span class="flex items-center gap-2.5 text-xs font-bold text-slate-700 font-sans">
+                    <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="2"
+                      viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 9a3 3 0 013 3 3 3 0 003 3c2 0 3.657 1.657 3.657 3.657z" />
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 18.657a8 8 0 01-11.314 0" />
+                    </svg>
+                    Report Heatmap
+                  </span>
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="layer-toggle-heatmap" class="sr-only peer">
+                    <div
+                      class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600">
+                    </div>
+                  </label>
+                </div>
+                <!-- Marker Toggle -->
+                <div class="flex items-center justify-between">
+                  <span class="flex items-center gap-2.5 text-xs font-bold text-slate-700 font-sans">
+                    <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="2"
+                      viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    Report Markers
+                  </span>
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="layer-toggle-markers" checked class="sr-only peer">
+                    <div
+                      class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600">
+                    </div>
+                  </label>
+                </div>
+                <!-- Barangay Boundaries Toggle -->
+                <div class="flex items-center justify-between">
+                  <span class="flex items-center gap-2.5 text-xs font-bold text-slate-700 font-sans">
+                    <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="2"
+                      viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                    </svg>
+                    Barangay Boundary
+                  </span>
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="layer-toggle-barangay" class="sr-only peer">
+                    <div
+                      class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600">
+                    </div>
+                  </label>
+                </div>
+                <!-- Flood Prone Zones Toggle -->
+                <div class="flex items-center justify-between">
+                  <span class="flex items-center gap-2.5 text-xs font-bold text-slate-700 font-sans">
+                    <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="2"
+                      viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    Flood Prone Areas
+                  </span>
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="layer-toggle-flood" class="sr-only peer">
+                    <div
+                      class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600">
+                    </div>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Recent Critical Alerts Card -->
+            <div
+              class="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex flex-col flex-1 overflow-hidden min-h-0">
+              <div class="flex items-center justify-between mb-4 flex-shrink-0">
+                <h4 class="text-sm font-black uppercase text-slate-800 tracking-wider">Recent Critical Alerts</h4>
+                <a href="#" onclick="switchView('reports'); return false;"
+                  class="text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors">View All</a>
+              </div>
+              <div id="recent-critical-alerts-container"
+                class="space-y-3 overflow-y-auto pr-3 flex-1 mb-4 custom-scrollbar">
+                <!-- Dynamic list rendering -->
+                <p class="text-xs text-slate-400 italic py-4 text-center">No critical alerts</p>
+              </div>
+              <button id="map-btn-view-all"
+                class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-2xl shadow-md transition-all text-center cursor-pointer flex items-center justify-center gap-2 hover:shadow-emerald-100 hover:shadow-lg active:scale-[0.99] flex-shrink-0">
+                <span>View All Reports</span>
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- KPI/Stat Cards Row (Below Map) / Tentative-->
+        <!-- <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2">
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+            <span class="text-[10px] font-black uppercase text-slate-400 tracking-wider">Total Reports</span>
+            <div class="text-2xl font-black text-slate-900 mt-1" id="map-kpi-total">--</div>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+            <span class="text-[10px] font-black uppercase text-slate-400 tracking-wider">Pending Action</span>
+            <div class="text-2xl font-black text-amber-600 mt-1" id="map-kpi-pending">--</div>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+            <span class="text-[10px] font-black uppercase text-slate-400 tracking-wider">Under Investigation</span>
+            <div class="text-2xl font-black text-blue-600 mt-1" id="map-kpi-progress">--</div>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+            <span class="text-[10px] font-black uppercase text-slate-400 tracking-wider">Resolved Today</span>
+            <div class="text-2xl font-black text-emerald-600 mt-1" id="map-kpi-resolved">--</div>
+          </div>
+        </div> -->
       </section>
     </main>
 

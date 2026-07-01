@@ -43,7 +43,7 @@ import {
   function normalizeCategory(rawCategory) {
     if (!rawCategory) return "Uncategorized";
     const cat = String(rawCategory).trim().toLowerCase();
-    
+
     // Mappings from the misaligned user-app values to match what the user chose
     const legacyMapping = {
       "organic": "Recyclable",
@@ -51,11 +51,11 @@ import {
       "construction": "Hazardous Waste",
       "mixed": "Nabubulok"
     };
-    
+
     if (legacyMapping[cat]) {
       return legacyMapping[cat];
     }
-    
+
     // Capitalize first letter of category if it's already a clean string
     return rawCategory.charAt(0).toUpperCase() + rawCategory.slice(1);
   }
@@ -94,7 +94,7 @@ import {
 
   function mapDocToReport(docSnap) {
     const data = docSnap.data();
-    
+
     // Safely parse the location whether it's a string or an object
     let safeLocation = "Unknown Location";
     if (typeof data.location === "string") {
@@ -108,13 +108,13 @@ import {
       docId: docSnap.id,
       reportId: docSnap.id,
       id: docSnap.id.slice(0, 8).toUpperCase(),
-      category: normalizeCategory(data.wasteType),      
+      category: normalizeCategory(data.wasteType),
       location: safeLocation,
       coordinates: data.coordinates || null,
       submittedBy: data.reporterName || "Anonymous",
-      contactInfo: data.contactInfo || "Not Provided",  
+      contactInfo: data.contactInfo || "Not Provided",
       status: normalizeStatus(data.status),
-      aiVolume: data.volumeEstimate || "N/A",           
+      aiVolume: data.volumeEstimate || "N/A",
       severity: data.severityScore != null ? Number(data.severityScore) : 0,
       notes: data.notes || "",
       imageUrl: data.imageUrl || null,
@@ -128,12 +128,20 @@ import {
   const itemsPerPage = 8;
   let selectedReport = null;
   let unsubscribeReports = null;
-  
+
   // Map Variables
   let mapInstance = null;
   let markerLayerGroup = null;
   let dashboardMapInstance = null;
   let dashboardLayerGroup = null;
+  let activeMapStatusFilter = "all";
+  let activeMapCategoryFilter = "all";
+  let showSeverityLow = true;
+  let showSeverityMedium = true;
+  let showSeverityHigh = true;
+  let showMarkers = true;
+  let heatLayer = null;
+  let showHeatmap = false;
 
   // DOM Elements
   const navDashboardBtn = document.getElementById("nav-dashboard");
@@ -147,7 +155,7 @@ import {
   const viewMapPanel = document.getElementById("view-map-panel");
   const viewTitle = document.getElementById("view-title");
   const mainHeader = document.getElementById("main-header");
-  
+
   const statActiveEl = document.getElementById("stat-active");
   const statPendingEl = document.getElementById("stat-pending");
   const statProgressEl = document.getElementById("stat-progress");
@@ -170,7 +178,7 @@ import {
   const modalStatusBadge = document.getElementById("modal-status-badge");
   const modalStatusSelect = document.getElementById("modal-status-select");
   const modalReportImage = document.getElementById("modal-report-image");
-  
+
   const closeModalBtn = document.getElementById("close-modal-btn");
   const modalBtnCloseSecondary = document.getElementById("modal-btn-close-secondary");
   const modalBtnSave = document.getElementById("modal-btn-save");
@@ -209,6 +217,7 @@ import {
         updateCategoryDropdown(reports);
         updateDashboardMetrics(reports);
         renderReportsTable();
+        if (typeof updateRecentCriticalAlerts === "function") updateRecentCriticalAlerts();
         if (typeof renderMapMarkers === "function") renderMapMarkers();
 
         if (selectedReport) {
@@ -234,26 +243,59 @@ import {
   }
 
   function updateCategoryDropdown(reportsList) {
-    const categorySelect = document.getElementById("category-filter-select");
-    if (!categorySelect) return;
-    const currentVal = categorySelect.value;
-    
-    // Get unique categories
     const categories = Array.from(new Set(reportsList.map(r => r.category).filter(Boolean)));
     categories.sort();
-    
-    categorySelect.innerHTML = `<option value="all">All Categories</option>`;
-    categories.forEach(cat => {
-      const option = document.createElement("option");
-      option.value = cat;
-      option.textContent = cat.charAt(0).toUpperCase() + cat.slice(1);
-      categorySelect.appendChild(option);
-    });
-    
-    if (categories.includes(currentVal)) {
-      categorySelect.value = currentVal;
-    } else {
-      categorySelect.value = "all";
+
+    // 1. Reports View Custom Dropdown
+    const reportsCatMenu = document.getElementById("reports-dropdown-category-menu");
+    const reportsCatText = document.getElementById("reports-dropdown-category-text");
+
+    if (reportsCatMenu) {
+      reportsCatMenu.innerHTML = `<div class="px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 cursor-pointer transition-colors" data-value="all">All Categories</div>`;
+      categories.forEach(cat => {
+        const optionDiv = document.createElement("div");
+        optionDiv.className = "px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 cursor-pointer transition-colors";
+        optionDiv.dataset.value = cat;
+        optionDiv.textContent = cat.charAt(0).toUpperCase() + cat.slice(1);
+        reportsCatMenu.appendChild(optionDiv);
+      });
+
+      // Bind click events
+      reportsCatMenu.querySelectorAll("div[data-value]").forEach(opt => {
+        opt.addEventListener("click", (e) => {
+          e.stopPropagation();
+          currentCategoryFilter = e.target.dataset.value;
+          if (reportsCatText) reportsCatText.textContent = e.target.textContent;
+          reportsCatMenu.classList.add("hidden");
+          currentPage = 1;
+          renderReportsTable();
+        });
+      });
+    }
+
+    // 2. Map View Custom Dropdown
+    const mapCatMenu = document.getElementById("dropdown-category-menu");
+    const mapCatText = document.getElementById("dropdown-category-text");
+
+    if (mapCatMenu) {
+      mapCatMenu.innerHTML = `<div class="px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 cursor-pointer transition-colors" data-value="all">All Categories</div>`;
+      categories.forEach(cat => {
+        const optionDiv = document.createElement("div");
+        optionDiv.className = "px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 cursor-pointer transition-colors";
+        optionDiv.dataset.value = cat;
+        optionDiv.textContent = cat.charAt(0).toUpperCase() + cat.slice(1);
+        mapCatMenu.appendChild(optionDiv);
+      });
+
+      mapCatMenu.querySelectorAll("div[data-value]").forEach(opt => {
+        opt.addEventListener("click", (e) => {
+          e.stopPropagation();
+          activeMapCategoryFilter = e.target.dataset.value;
+          if (mapCatText) mapCatText.textContent = e.target.textContent;
+          mapCatMenu.classList.add("hidden");
+          renderMapMarkers();
+        });
+      });
     }
   }
 
@@ -261,14 +303,14 @@ import {
     if (!date) return "N/A";
     const options = { month: "short", day: "numeric" };
     const formattedDate = date.toLocaleDateString("en-US", options);
-    
+
     let hours = date.getHours();
     const minutes = date.getMinutes();
     const ampm = hours >= 12 ? "PM" : "AM";
     hours = hours % 12;
     hours = hours ? hours : 12; // the hour '0' should be '12'
     const strMinutes = minutes < 10 ? "0" + minutes : minutes;
-    
+
     return `${formattedDate}, ${hours}:${strMinutes} ${ampm}`;
   }
 
@@ -284,7 +326,7 @@ import {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.disabled = disabled;
-      
+
       if (isActive) {
         btn.className = "px-2.5 py-1 text-xs font-bold rounded-lg border border-emerald-600 bg-emerald-50 text-emerald-800 transition-colors";
       } else if (disabled) {
@@ -292,7 +334,7 @@ import {
       } else {
         btn.className = "px-2.5 py-1 text-xs font-medium rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer";
       }
-      
+
       btn.innerHTML = label;
       if (!disabled) {
         btn.addEventListener("click", () => {
@@ -373,7 +415,7 @@ import {
 
     // Convert rows to CSV strings
     const csvRows = [headers.join(",")];
-    
+
     dataToExport.forEach(report => {
       let lat = "";
       let lng = "";
@@ -381,7 +423,7 @@ import {
         if (report.coordinates.lat != null) lat = report.coordinates.lat;
         if (report.coordinates.lng != null) lng = report.coordinates.lng;
       }
-      
+
       let priorityText = "Low";
       if (report.severity >= 4) {
         priorityText = "High";
@@ -418,9 +460,9 @@ import {
     const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
-    
+
     link.setAttribute("href", url);
-    link.setAttribute("download", `basura_pin_reports_${new Date().toISOString().slice(0,10)}.csv`);
+    link.setAttribute("download", `basura_pin_reports_${new Date().toISOString().slice(0, 10)}.csv`);
     link.style.visibility = "hidden";
     document.body.appendChild(link);
     link.click();
@@ -428,15 +470,60 @@ import {
   }
 
   function updateDashboardMetrics(reports) {
-    const activeCount = reports.length;
+    // 1. Dashboard View Stats
+    const activeCount = reports.filter((r) => r.status !== "Resolved").length; // Active non-resolved reports
+    const criticalCount = reports.filter((r) => r.severity >= 4 && r.status !== "Resolved").length; // Active severity >= 4
     const pendingCount = reports.filter((r) => r.status === "Pending Verification").length;
-    const inProgressCount = reports.filter((r) => r.status === "In Progress").length;
     const resolvedCount = reports.filter((r) => r.status === "Resolved").length;
+    const inProgressCount = reports.filter((r) => r.status === "In Progress").length;
 
     if (statActiveEl) statActiveEl.textContent = String(activeCount);
     if (statPendingEl) statPendingEl.textContent = String(pendingCount);
-    if (statProgressEl) statProgressEl.textContent = String(inProgressCount);
+    if (statProgressEl) statProgressEl.textContent = String(criticalCount);
     if (statResolvedEl) statResolvedEl.textContent = String(resolvedCount);
+
+    // 2. Dynamic Map View Stats (Active non-resolved alerts)
+    const activeAlerts = reports.filter(r => r.status !== "Resolved");
+    const totalActive = activeAlerts.length;
+
+    // Calculate how many active reports were submitted TODAY
+    const today = new Date();
+    const newTodayCount = activeAlerts.filter(r => {
+      if (!r.createdAt) return false;
+      return r.createdAt.getDate() === today.getDate() &&
+        r.createdAt.getMonth() === today.getMonth() &&
+        r.createdAt.getFullYear() === today.getFullYear();
+    }).length;
+
+    const activeValEl = document.getElementById("map-active-alerts-val");
+    const newIndicatorEl = document.getElementById("map-active-new-indicator");
+
+    if (activeValEl) activeValEl.textContent = String(totalActive);
+
+    if (newIndicatorEl) {
+      if (newTodayCount > 0) {
+        newIndicatorEl.className = "text-[10px] font-bold text-emerald-600 mt-2 flex items-center gap-1";
+        newIndicatorEl.innerHTML = `<span class="text-xs">↑</span> +${newTodayCount} new today`;
+      } else {
+        newIndicatorEl.className = "text-[10px] font-bold text-slate-400 mt-2 flex items-center gap-1";
+        newIndicatorEl.innerHTML = `No new alerts today`;
+      }
+    }
+
+    // Severity Breakdown
+    const lowCount = activeAlerts.filter(r => r.severity <= 2).length;
+    const mediumCount = activeAlerts.filter(r => r.severity === 3).length;
+    const highCountMap = activeAlerts.filter(r => r.severity >= 4).length; // Both score 4 and 5 consolidated
+
+    if (document.getElementById("map-severity-low-val")) document.getElementById("map-severity-low-val").textContent = String(lowCount);
+    if (document.getElementById("map-severity-medium-val")) document.getElementById("map-severity-medium-val").textContent = String(mediumCount);
+    if (document.getElementById("map-severity-high-val")) document.getElementById("map-severity-high-val").textContent = String(highCountMap);
+
+    // Dynamic Map KPI Cards
+    if (document.getElementById("map-kpi-total")) document.getElementById("map-kpi-total").textContent = String(reports.length);
+    if (document.getElementById("map-kpi-pending")) document.getElementById("map-kpi-pending").textContent = String(pendingCount);
+    if (document.getElementById("map-kpi-progress")) document.getElementById("map-kpi-progress").textContent = String(inProgressCount);
+    if (document.getElementById("map-kpi-resolved")) document.getElementById("map-kpi-resolved").textContent = String(resolvedCount);
   }
 
   // --- MAP LOGIC ---
@@ -464,18 +551,18 @@ import {
 
   function getReportLatLng(report) {
     const coords = report.coordinates;
-    
+
     // Safely extract and convert string coordinates to actual floating-point numbers
     if (coords && coords.lat != null && coords.lng != null) {
       const parsedLat = parseFloat(coords.lat);
       const parsedLng = parseFloat(coords.lng);
-      
+
       // Make sure the parsing actually resulted in valid numbers
       if (!isNaN(parsedLat) && !isNaN(parsedLng)) {
         return [parsedLat, parsedLng];
       }
     }
-    
+
     if (Array.isArray(coords) && coords.length >= 2) {
       const parsedLat = parseFloat(coords[0]);
       const parsedLng = parseFloat(coords[1]);
@@ -483,7 +570,7 @@ import {
         return [parsedLat, parsedLng];
       }
     }
-    
+
     // GPS Fallback to Manila center if everything else completely fails
     let hash = 0;
     for (let i = 0; i < report.id.length; i++) hash = report.id.charCodeAt(i) + ((hash << 5) - hash);
@@ -493,9 +580,9 @@ import {
   }
 
   function buildMarkerHtml(report) {
-    let pinColorClass = "text-amber-500"; 
+    let pinColorClass = "text-amber-500";
     let pulseHtml = "";
-    
+
     // Evaluate Status First (Base Color)
     if (report.status === "Resolved") {
       pinColorClass = "text-slate-400";
@@ -525,101 +612,238 @@ import {
     return '<div class="relative w-full h-full">' + pulseHtml + svgIcon + '</div>';
   }
 
+  function getFilteredReportsForMap() {
+    let list = [...reports];
+
+    // 1. Status Filter
+    if (activeMapStatusFilter !== "all") {
+      list = list.filter(r => r.status === activeMapStatusFilter);
+    }
+
+    // 2. Category Filter
+    if (activeMapCategoryFilter !== "all") {
+      list = list.filter(r => r.category === activeMapCategoryFilter);
+    }
+
+    // 3. Severity Checkboxes
+    list = list.filter(r => {
+      if (r.severity >= 4) return showSeverityHigh;
+      if (r.severity === 3) return showSeverityMedium;
+      return showSeverityLow;
+    });
+
+    return list;
+  }
+
+  function updateHeatmap() {
+    if (!mapInstance) return;
+    if (heatLayer) {
+      mapInstance.removeLayer(heatLayer);
+      heatLayer = null;
+    }
+
+    if (showHeatmap) {
+      const filteredForMap = getFilteredReportsForMap();
+      const heatPoints = filteredForMap
+        .map(r => {
+          const latLng = getReportLatLng(r);
+          return [latLng[0], latLng[1], r.severity / 5]; // lat, lng, intensity
+        });
+
+      if (typeof L.heatLayer === "function") {
+        heatLayer = L.heatLayer(heatPoints, {
+          radius: 35,
+          blur: 20,
+          max: 1.0
+        }).addTo(mapInstance);
+      } else {
+        console.warn("Leaflet Heat plugin not loaded.");
+      }
+    }
+  }
+
+  function updateRecentCriticalAlerts() {
+    const container = document.getElementById("recent-critical-alerts-container");
+    if (!container) return;
+
+    const criticalReports = reports
+      .filter(r => r.severity >= 4 && r.status !== "Resolved")
+      .sort((a, b) => {
+        if (a.createdAt && b.createdAt) {
+          return b.createdAt.getTime() - a.createdAt.getTime();
+        }
+        return b.docId.localeCompare(a.docId);
+      });
+
+    const top3 = criticalReports.slice(0, 3);
+    container.innerHTML = "";
+
+    if (top3.length === 0) {
+      container.innerHTML = `<p class="text-xs text-slate-400 italic py-4 text-center">No active critical alerts.</p>`;
+      return;
+    }
+
+    top3.forEach(report => {
+      const card = document.createElement("div");
+      card.className = "bg-white hover:bg-slate-50 border border-slate-200 p-3 rounded-xl shadow-sm transition-all flex items-start gap-3 cursor-pointer group mb-2.5";
+
+      card.addEventListener("click", () => {
+        openDetailModal(report.docId);
+      });
+
+      const timeStr = report.createdAt ? report.createdAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : "N/A";
+      const dateStr = report.createdAt ? report.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "";
+
+      card.innerHTML = `
+        <div class="w-10 h-10 rounded-lg overflow-hidden border border-slate-100 flex-shrink-0">
+          <img src="${report.imageUrl || PLACEHOLDER_IMAGE}" class="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+        </div>
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center justify-between gap-2">
+            <h5 class="text-xs font-bold text-slate-800 truncate">${report.category}</h5>
+            <span class="text-[9px] font-black uppercase text-rose-600 bg-rose-50 border border-rose-100/50 px-1.5 py-0.5 rounded">High</span>
+          </div>
+          <p class="text-[10px] text-slate-500 truncate mt-0.5">${report.location}</p>
+          <p class="text-[9px] text-slate-400 font-medium mt-1">${dateStr} • ${timeStr}</p>
+        </div>
+      `;
+      container.appendChild(card);
+    });
+  }
+
+  function updateMapFilterVisuals(activeId) {
+    const filterButtons = {
+      all: document.getElementById("map-filter-all"),
+      high: document.getElementById("map-filter-high"),
+      medium: document.getElementById("map-filter-medium"),
+      resolved: document.getElementById("map-filter-resolved")
+    };
+
+    Object.keys(filterButtons).forEach(key => {
+      const btn = filterButtons[key];
+      if (btn) {
+        if (key === activeId) {
+          btn.className = "px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-600 text-white shadow-sm transition-all cursor-pointer";
+        } else {
+          btn.className = "px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-50 text-slate-700 hover:bg-slate-100 transition-all cursor-pointer";
+        }
+      }
+    });
+  }
+
   function renderMapMarkers() {
     if (!markerLayerGroup && !dashboardLayerGroup) return;
     if (markerLayerGroup) markerLayerGroup.clearLayers();
     if (dashboardLayerGroup) dashboardLayerGroup.clearLayers();
 
+    const mapReports = getFilteredReportsForMap();
+
+    // Dynamically update the count of filtered alerts in the overlay card
+    const activeValEl = document.getElementById("map-active-alerts-val");
+    if (activeValEl) activeValEl.textContent = String(mapReports.length);
+
+    // Render main map markers (filtered) only if showMarkers is true
+    if (showMarkers) {
+      mapReports.forEach((report) => {
+        const latLng = getReportLatLng(report);
+        const popupHtml = `
+          <div class="text-sm space-y-2 p-1 min-w-[180px]">
+            <p><strong>Report ID:</strong> ${report.id}</p>
+            <p><strong>Severity:</strong> ${report.severity} / 5</p>
+            <p><strong>Category:</strong> ${report.category}</p>
+            <p><strong>Status:</strong> ${report.status}</p>
+            <button type="button" onclick="window.openDetailModal('${report.docId}')" class="mt-2 w-full px-3 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700">View Details</button>
+          </div>
+        `;
+
+        if (markerLayerGroup) {
+          const icon = L.divIcon({
+            className: "bg-transparent border-0",
+            html: buildMarkerHtml(report),
+            iconSize: [32, 32],
+            iconAnchor: [16, 32],
+            popupAnchor: [0, -32],
+          });
+          const marker = L.marker(latLng, { icon });
+          marker.bindPopup(popupHtml);
+          markerLayerGroup.addLayer(marker);
+        }
+      });
+    }
+
+    // Render dashboard map markers (all reports)
     reports.forEach((report) => {
       const latLng = getReportLatLng(report);
-      const popupHtml = `
-        <div class="text-sm space-y-2 p-1 min-w-[180px]">
-          <p><strong>Report ID:</strong> ${report.id}</p>
-          <p><strong>Severity:</strong> ${report.severity} / 5</p>
-          <p><strong>Category:</strong> ${report.category}</p>
-          <p><strong>Status:</strong> ${report.status}</p>
-          <button type="button" onclick="window.openDetailModal('${report.docId}')" class="mt-2 w-full px-3 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700">View Details</button>
-        </div>
-      `;
-
-      if (markerLayerGroup) {
-        const icon = L.divIcon({
-          className: "bg-transparent border-0",
-          html: buildMarkerHtml(report),
-          iconSize: [32, 32],      
-          iconAnchor: [16, 32],    
-          popupAnchor: [0, -32],   
-        });
-        const marker = L.marker(latLng, { icon });
-        marker.bindPopup(popupHtml);
-        markerLayerGroup.addLayer(marker);
-      }
-
       if (dashboardLayerGroup) {
         const dashboardIcon = L.divIcon({
           className: "bg-transparent border-0",
           html: buildMarkerHtml(report),
-          iconSize: [32, 32],      
+          iconSize: [32, 32],
           iconAnchor: [12, 24],
         });
         const dashboardMarker = L.marker(latLng, { icon: dashboardIcon, interactive: false });
         dashboardLayerGroup.addLayer(dashboardMarker);
       }
     });
+
+    updateHeatmap();
   }
 
- // --- UI & NAVIGATION LOGIC ---
- function switchView(viewName) {
-   const navButtons = [navDashboardBtn, navReportsBtn, navMapBtn, navAnalyticsBtn, navSettingsBtn];
-   
-   // 1. Reset all buttons to inactive state
-   navButtons.forEach((btn) => {
-     if (btn) {
-       btn.classList.remove("bg-emerald-50", "text-emerald-700", "border-emerald-500", "font-bold");
-       btn.classList.add("text-slate-500", "border-transparent", "font-semibold");
-     }
-   });
+  // --- UI & NAVIGATION LOGIC ---
+  function switchView(viewName) {
+    const navButtons = [navDashboardBtn, navReportsBtn, navMapBtn, navAnalyticsBtn, navSettingsBtn];
 
-   // 2. Hide all panels
-   viewDashboardPanel.classList.add("hidden");
-   viewReportsPanel.classList.add("hidden");
-   viewMapPanel.classList.add("hidden");
+    // 1. Reset all buttons to inactive state
+    navButtons.forEach((btn) => {
+      if (btn) {
+        btn.classList.remove("bg-emerald-50", "text-emerald-700", "border-emerald-500", "font-bold");
+        btn.classList.add("text-slate-500", "border-transparent", "font-semibold");
+      }
+    });
 
-   // 3. Activate selected view and apply correct emerald highlights
-   if (viewName === "dashboard") {
-     if (mainHeader) mainHeader.classList.remove("hidden");
-     viewDashboardPanel.classList.remove("hidden");
-     if (navDashboardBtn) navDashboardBtn.classList.add("bg-emerald-50", "text-emerald-700", "border-emerald-500", "font-bold");
-     if (viewTitle) viewTitle.textContent = "Dashboard";
-     updateDashboardMetrics(reports);
-     initLeafletMap();
-     renderMapMarkers();
-     refreshMapSizes(100);
-   } else {
-     if (mainHeader) mainHeader.classList.add("hidden");
-     if (viewName === "reports") {
-       viewReportsPanel.classList.remove("hidden");
-       if (navReportsBtn) navReportsBtn.classList.add("bg-emerald-50", "text-emerald-700", "border-emerald-500", "font-bold");
-       if (viewTitle) viewTitle.textContent = "Civic Reports Database";
-       renderReportsTable();
-     } else if (viewName === "map") {
-       viewMapPanel.classList.remove("hidden");
-       if (navMapBtn) navMapBtn.classList.add("bg-emerald-50", "text-emerald-700", "border-emerald-500", "font-bold");
-       if (viewTitle) viewTitle.textContent = "Live Reports Map";
-       initLeafletMap();
-       renderMapMarkers();
-       refreshMapSizes(100);
-     }
-   }
- }
+    // 2. Hide all panels
+    viewDashboardPanel.classList.add("hidden");
+    viewReportsPanel.classList.add("hidden");
+    viewMapPanel.classList.add("hidden");
 
- // Track active sub-filter tab selection state
- let currentStatusFilter = "all";
+    // 3. Activate selected view and apply correct emerald highlights
+    if (viewName === "dashboard") {
+      if (mainHeader) mainHeader.classList.remove("hidden");
+      viewDashboardPanel.classList.remove("hidden");
+      if (navDashboardBtn) navDashboardBtn.classList.add("bg-emerald-50", "text-emerald-700", "border-emerald-500", "font-bold");
+      if (viewTitle) viewTitle.textContent = "Dashboard";
+      updateDashboardMetrics(reports);
+      initLeafletMap();
+      renderMapMarkers();
+      refreshMapSizes(100);
+    } else {
+      if (mainHeader) mainHeader.classList.add("hidden");
+      if (viewName === "reports") {
+        viewReportsPanel.classList.remove("hidden");
+        if (navReportsBtn) navReportsBtn.classList.add("bg-emerald-50", "text-emerald-700", "border-emerald-500", "font-bold");
+        if (viewTitle) viewTitle.textContent = "Civic Reports Database";
+        renderReportsTable();
+      } else if (viewName === "map") {
+        viewMapPanel.classList.remove("hidden");
+        if (navMapBtn) navMapBtn.classList.add("bg-emerald-50", "text-emerald-700", "border-emerald-500", "font-bold");
+        if (viewTitle) viewTitle.textContent = "Live Reports Map";
+        initLeafletMap();
+        if (typeof updateRecentCriticalAlerts === "function") updateRecentCriticalAlerts();
+        renderMapMarkers();
+        refreshMapSizes(100);
+      }
+    }
+  }
+
+  // Track active sub-filter tab and dropdown states globally
+  let currentStatusFilter = "all";
+  let currentCategoryFilter = "all";
+  let currentSortOrder = "date-desc"; // Default sorting by newest submitted time
 
   function renderReportsTable() {
     if (!reportsTableBody) return;
     const queryText = reportSearchInput ? reportSearchInput.value.toLowerCase().trim() : "";
-    
+
     // Update live sub-tab totals indicator elements
     const counts = {
       all: reports.length,
@@ -627,7 +851,7 @@ import {
       progress: reports.filter(r => r.status === "In Progress").length,
       resolved: reports.filter(r => r.status === "Resolved").length
     };
-    
+
     if (document.getElementById("tab-count-all")) document.getElementById("tab-count-all").textContent = `(${counts.all})`;
     if (document.getElementById("tab-count-pending")) document.getElementById("tab-count-pending").textContent = `(${counts.pending})`;
     if (document.getElementById("tab-count-progress")) document.getElementById("tab-count-progress").textContent = `(${counts.progress})`;
@@ -643,30 +867,35 @@ import {
       filteredList = filteredList.filter(r => r.status === "Resolved");
     }
 
-    // Apply secondary category filter
-    const categorySelect = document.getElementById("category-filter-select");
-    const selectedCategory = categorySelect ? categorySelect.value : "all";
-    if (selectedCategory && selectedCategory !== "all") {
-      filteredList = filteredList.filter(r => r.category === selectedCategory);
+    // Apply secondary category filter from custom dropdown
+    if (currentCategoryFilter && currentCategoryFilter !== "all") {
+      filteredList = filteredList.filter(r => r.category === currentCategoryFilter);
     }
 
     // Apply text query filter
     if (queryText) {
       filteredList = filteredList.filter((item) =>
-          item.id.toLowerCase().includes(queryText) ||
-          item.category.toLowerCase().includes(queryText) ||
-          item.location.toLowerCase().includes(queryText) ||
-          item.submittedBy.toLowerCase().includes(queryText) ||
-          item.status.toLowerCase().includes(queryText)
+        item.id.toLowerCase().includes(queryText) ||
+        item.category.toLowerCase().includes(queryText) ||
+        item.location.toLowerCase().includes(queryText) ||
+        item.submittedBy.toLowerCase().includes(queryText) ||
+        item.status.toLowerCase().includes(queryText)
       );
     }
 
-    // Sort processing
-    const sortVal = sortSelect ? sortSelect.value : "id-desc";
+    // Sort processing based on "Reported At" (createdAt timestamp)
     filteredList.sort((a, b) => {
-      if (sortVal === "id-asc") return a.docId.localeCompare(b.docId);
-      if (sortVal === "id-desc") return b.docId.localeCompare(a.docId);
-      return 0;
+      // Fallback to 0 if time is missing, though Firebase provides the timestamp
+      const timeA = a.createdAt ? a.createdAt.getTime() : 0;
+      const timeB = b.createdAt ? b.createdAt.getTime() : 0;
+
+      if (currentSortOrder === "date-desc") {
+        // Newest submitted forms first
+        return timeB - timeA || b.docId.localeCompare(a.docId);
+      } else {
+        // Oldest submitted forms first
+        return timeA - timeB || a.docId.localeCompare(b.docId);
+      }
     });
 
     // Save filtered and sorted list for CSV export
@@ -715,7 +944,7 @@ import {
       // 2. Calculate Priority Badge Styles
       let priorityText = "Low";
       let priorityClass = "bg-slate-100 text-slate-600 font-semibold text-xs px-2.5 py-0.5 rounded";
-      
+
       if (report.severity >= 4) {
         priorityText = "High";
         priorityClass = "bg-rose-50 text-rose-700 font-bold text-xs px-2.5 py-0.5 rounded border border-rose-100";
@@ -786,10 +1015,10 @@ import {
 
     Object.keys(tabs).forEach(key => {
       if (!tabs[key]) return;
-      tabs[key].addEventListener("click", function() {
+      tabs[key].addEventListener("click", function () {
         currentStatusFilter = key;
         updateTabHighlight(key);
-        
+
         // Sync select dropdown
         const statusSelect = document.getElementById("status-filter-select");
         if (statusSelect) {
@@ -801,7 +1030,7 @@ import {
           };
           statusSelect.value = selectVals[key] || "all";
         }
-        
+
         currentPage = 1;
         renderReportsTable();
       });
@@ -941,7 +1170,7 @@ import {
         });
       }
     });
-  
+
     setupSidebarToggle();
 
     // Modal & Table Setup
@@ -968,48 +1197,95 @@ import {
     const backdrop = document.getElementById("modal-backdrop");
     if (backdrop) backdrop.addEventListener("click", closeModal);
     document.addEventListener("keydown", (e) => { if (e.key === "Escape" || e.key === "Esc") closeModal(); });
-  
-    // Toolbar Filters Setup
-    const statusSelect = document.getElementById("status-filter-select");
-    if (statusSelect) {
-      statusSelect.addEventListener("change", function() {
-        const val = this.value;
-        const keys = {
-          all: "all",
-          "Pending Verification": "pending",
-          "In Progress": "progress",
-          Resolved: "resolved"
-        };
-        currentStatusFilter = keys[val] || "all";
-        updateTabHighlight(currentStatusFilter);
-        currentPage = 1;
-        renderReportsTable();
+
+    // --- Toolbar Filters Setup (Reports Tab Custom Dropdowns) ---
+
+    // Status Dropdown
+    const rptStatusBtn = document.getElementById("reports-dropdown-status-btn");
+    const rptStatusMenu = document.getElementById("reports-dropdown-status-menu");
+    const rptStatusText = document.getElementById("reports-dropdown-status-text");
+
+    if (rptStatusBtn && rptStatusMenu) {
+      rptStatusBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        rptStatusMenu.classList.toggle("hidden");
+        document.getElementById("reports-dropdown-category-menu")?.classList.add("hidden");
+        document.getElementById("reports-dropdown-sort-menu")?.classList.add("hidden");
+      });
+
+      rptStatusMenu.querySelectorAll("div[data-value]").forEach(opt => {
+        opt.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const val = e.target.dataset.value;
+          const keys = { "all": "all", "Pending Verification": "pending", "In Progress": "progress", "Resolved": "resolved" };
+
+          currentStatusFilter = keys[val] || "all";
+          if (rptStatusText) rptStatusText.textContent = e.target.textContent;
+          rptStatusMenu.classList.add("hidden");
+          updateTabHighlight(currentStatusFilter);
+          currentPage = 1;
+          renderReportsTable();
+        });
       });
     }
 
-    const categorySelect = document.getElementById("category-filter-select");
-    if (categorySelect) {
-      categorySelect.addEventListener("change", function() {
-        currentPage = 1;
-        renderReportsTable();
+    // Category Dropdown
+    const rptCatBtn = document.getElementById("reports-dropdown-category-btn");
+    const rptCatMenu = document.getElementById("reports-dropdown-category-menu");
+    if (rptCatBtn && rptCatMenu) {
+      rptCatBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        rptCatMenu.classList.toggle("hidden");
+        document.getElementById("reports-dropdown-status-menu")?.classList.add("hidden");
+        document.getElementById("reports-dropdown-sort-menu")?.classList.add("hidden");
       });
     }
 
-    const barangaySelect = document.getElementById("barangay-filter-select");
-    if (barangaySelect) {
-      barangaySelect.addEventListener("mousedown", function(e) {
-        e.preventDefault();
-        showToast("Barangay Filter");
+    // Sort Dropdown
+    const rptSortBtn = document.getElementById("reports-dropdown-sort-btn");
+    const rptSortMenu = document.getElementById("reports-dropdown-sort-menu");
+    const rptSortText = document.getElementById("reports-dropdown-sort-text");
+
+    if (rptSortBtn && rptSortMenu) {
+      rptSortBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        rptSortMenu.classList.toggle("hidden");
+        document.getElementById("reports-dropdown-category-menu")?.classList.add("hidden");
+        document.getElementById("reports-dropdown-status-menu")?.classList.add("hidden");
+      });
+
+      rptSortMenu.querySelectorAll("div[data-value]").forEach(opt => {
+        opt.addEventListener("click", (e) => {
+          e.stopPropagation();
+          currentSortOrder = e.target.dataset.value;
+          if (rptSortText) rptSortText.textContent = e.target.textContent;
+          rptSortMenu.classList.add("hidden");
+          currentPage = 1;
+          renderReportsTable();
+        });
       });
     }
 
+    // Barangay Dropdown (Coming Soon)
+    const rptBrgyBtn = document.getElementById("reports-dropdown-barangay-btn");
+    if (rptBrgyBtn) {
+      rptBrgyBtn.addEventListener("click", () => showToast("Barangay Mapping"));
+    }
+
+    // Filter Reset Button
     const filterBtn = document.getElementById("filter-btn");
     if (filterBtn) {
-      filterBtn.addEventListener("click", function() {
+      filterBtn.addEventListener("click", function () {
         if (reportSearchInput) reportSearchInput.value = "";
-        if (statusSelect) statusSelect.value = "all";
-        if (categorySelect) categorySelect.value = "all";
+
         currentStatusFilter = "all";
+        currentCategoryFilter = "all";
+        currentSortOrder = "date-desc";
+
+        if (rptStatusText) rptStatusText.textContent = "All Status";
+        if (document.getElementById("reports-dropdown-category-text")) document.getElementById("reports-dropdown-category-text").textContent = "All Categories";
+        if (rptSortText) rptSortText.textContent = "Reported At (Newest)";
+
         updateTabHighlight("all");
         currentPage = 1;
         renderReportsTable();
@@ -1019,6 +1295,167 @@ import {
     const exportBtn = document.getElementById("export-btn");
     if (exportBtn) {
       exportBtn.addEventListener("click", exportToCSV);
+    }
+
+    // Map overlay filter listeners
+    const mapFilterStatus = document.getElementById("map-filter-status");
+    if (mapFilterStatus) {
+      mapFilterStatus.addEventListener("change", function () {
+        activeMapStatusFilter = this.value;
+        renderMapMarkers();
+      });
+    }
+
+    const mapFilterCategory = document.getElementById("map-filter-category");
+    if (mapFilterCategory) {
+      mapFilterCategory.addEventListener("change", function () {
+        activeMapCategoryFilter = this.value;
+        renderMapMarkers();
+      });
+    }
+
+    const mapSevLow = document.getElementById("map-severity-low");
+    if (mapSevLow) {
+      mapSevLow.addEventListener("change", function () {
+        showSeverityLow = this.checked;
+        renderMapMarkers();
+      });
+    }
+
+    const mapSevMedium = document.getElementById("map-severity-medium");
+    if (mapSevMedium) {
+      mapSevMedium.addEventListener("change", function () {
+        showSeverityMedium = this.checked;
+        renderMapMarkers();
+      });
+    }
+
+    const mapSevHigh = document.getElementById("map-severity-high");
+    if (mapSevHigh) {
+      mapSevHigh.addEventListener("change", function () {
+        showSeverityHigh = this.checked;
+        renderMapMarkers();
+      });
+    }
+
+    // Map filters reset listener
+    const mapBtnFilters = document.getElementById("map-btn-filters");
+    if (mapBtnFilters) {
+      mapBtnFilters.addEventListener("click", function () {
+        activeMapStatusFilter = "all";
+        activeMapCategoryFilter = "all";
+        const statusText = document.getElementById("dropdown-status-text");
+        const catText = document.getElementById("dropdown-category-text");
+        if (statusText) statusText.textContent = "Filter Reports (All)";
+        if (catText) catText.textContent = "All Categories";
+
+        const lowCb = document.getElementById("map-severity-low");
+        const medCb = document.getElementById("map-severity-medium");
+        const highCb = document.getElementById("map-severity-high");
+        if (lowCb) lowCb.checked = true;
+        if (medCb) medCb.checked = true;
+        if (highCb) highCb.checked = true;
+
+        showSeverityLow = true;
+        showSeverityMedium = true;
+        showSeverityHigh = true;
+
+        renderMapMarkers();
+        showToast("Map filters have been successfully reset.");
+      });
+    }
+    // --- Custom Map Dropdown Toggle Logic ---
+    const statusBtn = document.getElementById("dropdown-status-btn");
+    const statusMenu = document.getElementById("dropdown-status-menu");
+    const statusText = document.getElementById("dropdown-status-text");
+
+    if (statusBtn && statusMenu) {
+      statusBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        statusMenu.classList.toggle("hidden");
+        document.getElementById("dropdown-category-menu")?.classList.add("hidden");
+      });
+
+      statusMenu.querySelectorAll("div[data-value]").forEach(opt => {
+        opt.addEventListener("click", (e) => {
+          e.stopPropagation();
+          activeMapStatusFilter = e.target.dataset.value;
+          if (statusText) statusText.textContent = e.target.textContent;
+          statusMenu.classList.add("hidden");
+          renderMapMarkers();
+        });
+      });
+    }
+
+    const catBtn = document.getElementById("dropdown-category-btn");
+    const catMenu = document.getElementById("dropdown-category-menu");
+    if (catBtn && catMenu) {
+      catBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        catMenu.classList.toggle("hidden");
+        document.getElementById("dropdown-status-menu")?.classList.add("hidden");
+      });
+    }
+
+    // Global Click Listener to close all open dropdowns
+    document.addEventListener("click", () => {
+      [
+        "reports-dropdown-status-menu",
+        "reports-dropdown-category-menu",
+        "reports-dropdown-sort-menu",
+        "dropdown-status-menu",
+        "dropdown-category-menu"
+      ].forEach(id => {
+        const menu = document.getElementById(id);
+        if (menu && !menu.classList.contains("hidden")) menu.classList.add("hidden");
+      });
+    });
+
+    // Map overlay layer listeners
+    const layerToggleHeatmap = document.getElementById("layer-toggle-heatmap");
+    if (layerToggleHeatmap) {
+      layerToggleHeatmap.addEventListener("change", function () {
+        if (this.checked) {
+          showToast("Heatmap density layer is a work in progress.");
+          this.checked = false;
+          showHeatmap = false;
+        }
+      });
+    }
+
+    const layerToggleMarkers = document.getElementById("layer-toggle-markers");
+    if (layerToggleMarkers) {
+      layerToggleMarkers.addEventListener("change", function () {
+        showMarkers = this.checked;
+        renderMapMarkers();
+      });
+    }
+
+    const layerToggleBarangay = document.getElementById("layer-toggle-barangay");
+    if (layerToggleBarangay) {
+      layerToggleBarangay.addEventListener("change", function () {
+        if (this.checked) {
+          showToast("Barangay Boundaries");
+          this.checked = false;
+        }
+      });
+    }
+
+    const layerToggleFlood = document.getElementById("layer-toggle-flood");
+    if (layerToggleFlood) {
+      layerToggleFlood.addEventListener("change", function () {
+        if (this.checked) {
+          showToast("Flood Prone Zones");
+          this.checked = false;
+        }
+      });
+    }
+
+    const mapBtnViewAll = document.getElementById("map-btn-view-all");
+    if (mapBtnViewAll) {
+      mapBtnViewAll.addEventListener("click", () => {
+        switchView("reports");
+      });
     }
 
     // Initialize Sub-Tab Filters

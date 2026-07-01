@@ -1,62 +1,57 @@
 <!doctype html>
 <html lang="en" class="scroll-smooth">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta
-      name="description"
-      content="E-Tapon Mo — Community garbage mapping app"
-    />
-    <title>E-Tapon Mo</title>
 
-    <!-- Tailwind CSS via CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      // Tell Tailwind to switch themes when the <html> element has class="dark"
-      tailwind.config = {
-        darkMode: "class",
-        theme: {
-          extend: {
-            fontFamily: {
-              sans: [
-                "Inter",
-                "ui-sans-serif",
-                "system-ui",
-                "-apple-system",
-                "Segoe UI",
-                "Roboto",
-                "Helvetica Neue",
-                "Arial",
-                "sans-serif",
-              ],
-            },
-            colors: {
-              // Electric purple accent used in dark mode borders & buttons
-              electric: {
-                400: "#a78bfa",
-                500: "#8b5cf6",
-                600: "#7c3aed",
-              },
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="E-Tapon Mo — Community garbage mapping app" />
+  <title>E-Tapon Mo</title>
+
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    // Tell Tailwind to switch themes when the <html> element has class="dark"
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: [
+              "Inter",
+              "ui-sans-serif",
+              "system-ui",
+              "-apple-system",
+              "Segoe UI",
+              "Roboto",
+              "Helvetica Neue",
+              "Arial",
+              "sans-serif",
+            ],
+          },
+          colors: {
+            // Electric purple accent used in dark mode borders & buttons
+            electric: {
+              400: "#a78bfa",
+              500: "#8b5cf6",
+              600: "#7c3aed",
             },
           },
         },
-      };
-    </script>
+      },
+    };
+  </script>
 
-    <!-- Leaflet Geocoder CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Leaflet Geocoder CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-    <!-- Clean, legible sans-serif from Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
-      rel="stylesheet"
-    />
+  <!-- Clean, legible sans-serif from Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
-    <style>
-      /* Smooth color transitions when toggling light/dark mode
+  <style>
+    /* Smooth color transitions when toggling light/dark mode
       html.theme-transition,
       html.theme-transition *,
       html.theme-transition *::before,
@@ -67,204 +62,249 @@
           color 0.25s ease;
       } */
 
-      /* Modernize Leaflet Map Controls */
-      .leaflet-bar {
-        border: none !important;
-        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06) !important;
-        border-radius: 0.75rem !important;
-        overflow: hidden;
-      }
-      .leaflet-bar a {
-        background-color: white !important;
-        color: #4b5563 !important;
-        width: 40px !important;
-        height: 40px !important;
-        line-height: 40px !important;
-        border-bottom: 1px solid #f3f4f6 !important;
-      }
-      .leaflet-bar a:hover {
-        background-color: #f9fafb !important;
-        color: #15803d !important;
-      }
-      
-      /* Modernize the inside-map Geocoder Search Bar */
-      .leaflet-control-geocoder {
-        border: none !important;
-        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1) !important;
-        border-radius: 9999px !important; /* Pill shape */
-        overflow: hidden;
-      }
-      .leaflet-control-geocoder-form input {
-        font-family: 'Inter', sans-serif !important;
-        padding: 10px 16px !important;
-        font-size: 14px !important;
-        border: none !important;
-        outline: none !important;
-      }
+    /* Modernize Leaflet Map Controls */
+    .leaflet-bar {
+      border: none !important;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+      border-radius: 0.75rem !important;
+      overflow: hidden;
+    }
 
-      /* 1. Push top-left (Zoom) and top-right (Search) down to clear the custom header elements */
-      .leaflet-top.leaflet-left {
-        margin-top: 70px !important; 
-        margin-left: 12px !important;
-      }
-      
-      .leaflet-top.leaflet-right {
-        margin-top: 70px !important; /* This drops the search bar safely below the X button */
-        margin-right: 12px !important;
-      }
+    .leaflet-bar a {
+      background-color: white !important;
+      color: #4b5563 !important;
+      width: 40px !important;
+      height: 40px !important;
+      line-height: 40px !important;
+      border-bottom: 1px solid #f3f4f6 !important;
+    }
 
-      /* 2. Drop the Attribution (Contributors) back to the bottom */
-      .leaflet-bottom.leaflet-right,
-      .leaflet-bottom.leaflet-left {
-        margin-bottom: 0px !important; /* Removes the huge floating gap */
-      }
+    .leaflet-bar a:hover {
+      background-color: #f9fafb !important;
+      color: #15803d !important;
+    }
 
-      /* Clean up the attribution box so it's tiny and subtle */
-      .leaflet-control-attribution {
-        background-color: rgba(255, 255, 255, 0.5) !important;
-        backdrop-filter: blur(2px);
-        padding: 2px 6px !important;
-        font-size: 9px !important;
-        color: #9ca3af !important;
-        border: none !important;
-      }
-      .leaflet-control-attribution a {
-        color: #6b7280 !important;
-      }
-      
-    </style>
-  </head>
+    /* Modernize the inside-map Geocoder Search Bar */
+    .leaflet-control-geocoder {
+      border: none !important;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
+      border-radius: 9999px !important;
+      /* Pill shape */
+      overflow: hidden;
+    }
 
-  <!--
+    .leaflet-control-geocoder-form input {
+      font-family: 'Inter', sans-serif !important;
+      padding: 10px 16px !important;
+      font-size: 14px !important;
+      border: none !important;
+      outline: none !important;
+    }
+
+    /* 1. Push top-left (Zoom) and top-right (Search) down to clear the custom header elements */
+    .leaflet-top.leaflet-left {
+      margin-top: 70px !important;
+      margin-left: 12px !important;
+    }
+
+    .leaflet-top.leaflet-right {
+      margin-top: 70px !important;
+      /* This drops the search bar safely below the X button */
+      margin-right: 12px !important;
+    }
+
+    /* 2. Drop the Attribution (Contributors) back to the bottom */
+    .leaflet-bottom.leaflet-right,
+    .leaflet-bottom.leaflet-left {
+      margin-bottom: 0px !important;
+      /* Removes the huge floating gap */
+    }
+
+    /* Clean up the attribution box so it's tiny and subtle */
+    .leaflet-control-attribution {
+      background-color: rgba(255, 255, 255, 0.5) !important;
+      backdrop-filter: blur(2px);
+      padding: 2px 6px !important;
+      font-size: 9px !important;
+      color: #9ca3af !important;
+      border: none !important;
+    }
+
+    .leaflet-control-attribution a {
+      color: #6b7280 !important;
+    }
+  </style>
+</head>
+
+<!--
     MOBILE-FIRST APP SHELL
     On phones: full width with comfortable padding.
     On larger screens: centered column capped at max-w-md (looks like a phone app).
   -->
- 
-  <body class="min-h-screen bg-gray-50 text-gray-900 antialiased font-sans pb-12">
 
-    <!-- Main Card Shell -->
-    <div class="mx-auto w-full max-w-md bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
-      
-      <!-- Header / Logo Area -->
-      <header class="pt-4 pb-6 border-b border-gray-100 flex flex-col items-center justify-center text-center">
-  
-        <div class="mb-0">
-          <img 
-            src="assets/ogLogo.svg" 
-            alt="E-Tapon Mo Logo" 
-            class="h-20 w-auto object-contain drop-shadow-sm transition-all duration-300"
-          />
-        </div>
-        
-        <div class="flex flex-col items-center">
-          <h2 class="text-3xl font-extrabold text-green-800 tracking-tight leading-tight">
-            E-Tapon Mo
-          </h2>
-          <p class="text-xs font-bold text-gray-500 uppercase tracking-widest mt-1.0">
-            Bayan • Kalikasan • Kinabukasan
-          </p>
-        </div>
-      
-      </header>
+<body class="min-h-screen bg-gray-50 text-gray-900 antialiased font-sans pb-12">
 
-      <div class="p-6 space-y-8">
+  <!-- Main Card Shell -->
+  <div class="mx-auto w-full max-w-md bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
 
-        <!-- Phase Tracker -->
-        <div class="mb-4 px-2">
-          <div class="flex items-center justify-between relative z-0">
-            <div class="absolute left-0 top-4 -translate-y-1/2 h-1 w-full bg-gray-200 -z-10 rounded-full"></div>
-            <div id="stepper-progress-bar" class="absolute left-0 top-4 -translate-y-1/2 h-1 w-0 bg-green-700 -z-10 transition-all duration-500 ease-in-out rounded-full"></div>
+    <!-- Header / Logo Area -->
+    <header class="pt-4 pb-6 border-b border-gray-100 flex flex-col items-center justify-center text-center">
 
-            <div class="flex flex-col items-center gap-1 bg-white px-2 stepper-step" data-step="1">
-              <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold bg-green-700 text-white transition-colors duration-300 step-circle ring-4 ring-white">1</div>
-              <span class="text-[10px] font-bold text-green-800 transition-colors duration-300 step-label">Photo</span>
-            </div>
-            <div class="flex flex-col items-center gap-1 bg-white px-2 stepper-step" data-step="2">
-              <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold bg-gray-200 text-gray-500 transition-colors duration-300 step-circle ring-4 ring-white">2</div>
-              <span class="text-[10px] font-semibold text-gray-400 transition-colors duration-300 step-label">AI Analysis</span>
-            </div>
-            <div class="flex flex-col items-center gap-1 bg-white px-2 stepper-step" data-step="3">
-              <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold bg-gray-200 text-gray-500 transition-colors duration-300 step-circle ring-4 ring-white">3</div>
-              <span class="text-[10px] font-semibold text-gray-400 transition-colors duration-300 step-label">Details</span>
-            </div>
-            <div class="flex flex-col items-center gap-1 bg-white px-2 stepper-step" data-step="4">
-              <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold bg-gray-200 text-gray-500 transition-colors duration-300 step-circle ring-4 ring-white">4</div>
-              <span class="text-[10px] font-semibold text-gray-400 transition-colors duration-300 step-label">Submit</span>
-            </div>
+      <div class="mb-0">
+        <img src="assets/ogLogo.svg" alt="E-Tapon Mo Logo"
+          class="h-20 w-auto object-contain drop-shadow-sm transition-all duration-300" />
+      </div>
+
+      <div class="flex flex-col items-center">
+        <h2 class="text-3xl font-extrabold text-green-800 tracking-tight leading-tight">
+          E-Tapon Mo
+        </h2>
+        <p class="text-xs font-bold text-gray-500 uppercase tracking-widest mt-1.0">
+          Bayan • Kalikasan • Kinabukasan
+        </p>
+      </div>
+
+    </header>
+
+    <div class="p-6 space-y-8">
+
+      <!-- Phase Tracker -->
+      <div class="mb-4 px-2">
+        <div class="flex items-center justify-between relative z-0">
+          <div class="absolute left-0 top-4 -translate-y-1/2 h-1 w-full bg-gray-200 -z-10 rounded-full"></div>
+          <div id="stepper-progress-bar"
+            class="absolute left-0 top-4 -translate-y-1/2 h-1 w-0 bg-green-700 -z-10 transition-all duration-500 ease-in-out rounded-full">
+          </div>
+
+          <div class="flex flex-col items-center gap-1 bg-white px-2 stepper-step" data-step="1">
+            <div
+              class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold bg-green-700 text-white transition-colors duration-300 step-circle ring-4 ring-white">
+              1</div>
+            <span class="text-[10px] font-bold text-green-800 transition-colors duration-300 step-label">Photo</span>
+          </div>
+          <div class="flex flex-col items-center gap-1 bg-white px-2 stepper-step" data-step="2">
+            <div
+              class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold bg-gray-200 text-gray-500 transition-colors duration-300 step-circle ring-4 ring-white">
+              2</div>
+            <span class="text-[10px] font-semibold text-gray-400 transition-colors duration-300 step-label">AI
+              Analysis</span>
+          </div>
+          <div class="flex flex-col items-center gap-1 bg-white px-2 stepper-step" data-step="3">
+            <div
+              class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold bg-gray-200 text-gray-500 transition-colors duration-300 step-circle ring-4 ring-white">
+              3</div>
+            <span
+              class="text-[10px] font-semibold text-gray-400 transition-colors duration-300 step-label">Details</span>
+          </div>
+          <div class="flex flex-col items-center gap-1 bg-white px-2 stepper-step" data-step="4">
+            <div
+              class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold bg-gray-200 text-gray-500 transition-colors duration-300 step-circle ring-4 ring-white">
+              4</div>
+            <span
+              class="text-[10px] font-semibold text-gray-400 transition-colors duration-300 step-label">Submit</span>
           </div>
         </div>
-        
-        <!-- Step 1: Photo -->
-        <section>
-          <h3 class="text-sm font-bold text-green-800 mb-1">1. Take a Photo</h3>
-          <p class="text-xs text-gray-500 mb-3">Take a clear photo of the waste problem.</p>
-          
-          <div class="relative overflow-hidden rounded-xl border-2 border-dashed border-green-300 bg-green-50 p-6 text-center transition focus-within:ring-2 focus-within:ring-green-500 hover:bg-green-100">
-            <input id="trash-photo-input" type="file" accept="image/*" capture="environment" class="sr-only" aria-label="Snap trash photo" />
-            <label for="trash-photo-input" class="cursor-pointer flex flex-col items-center gap-2">
-              <svg class="w-8 h-8 text-green-700" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-              <span class="text-sm font-bold text-green-800">Tap to take a photo</span>
-              <span class="text-xs text-green-600">or upload from gallery</span>
-            </label>
-          </div>
-          <p class="text-center text-[10px] text-gray-400 mt-2">Tips: Include the waste and surrounding area for better analysis.</p>
-        </section>
+      </div>
 
-        <!-- Step 2: AI Analysis (Displays Preview & Results) -->
-        <section>
-          <h3 class="text-sm font-bold text-green-800 mb-1">2. AI Analysis Result</h3>
-          <p class="text-xs text-gray-500 mb-3">Our AI will analyze your photo here.</p>
-          
-          <div id="ai-summary" class="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600 whitespace-pre-wrap">
-            Waiting for photo...
-          </div>
-        </section>
+      <!-- Step 1: Photo -->
+      <section>
+        <h3 class="text-sm font-bold text-green-800 mb-1">1. Take a Photo</h3>
+        <p class="text-xs text-gray-500 mb-3">Take a clear photo of the waste problem.</p>
 
-        <!-- Step 3: Details & User Category Dropdown -->
-        <section>
-          <h3 class="text-sm font-bold text-green-800 mb-1">3. Additional Details</h3>
-          <p class="text-xs text-gray-500 mb-3">Help us understand the issue better.</p>
-          
-          <div class="space-y-4">
-
-         <!-- Unified Location Search & Map Trigger -->
-         <div class="relative w-full">
-          <label class="block text-xs font-bold text-gray-700 mb-1">Location <span class="text-red-500">*</span></label>
-          
-          <div class="relative flex items-center w-full rounded-lg border border-gray-300 bg-white focus-within:border-green-500 focus-within:ring-1 focus-within:ring-green-500 transition-all shadow-sm">
-            
-            <!-- Left Icon -->
-            <span class="pl-3 text-green-700">
-              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
-            </span>
-            
-            <!-- Input Field -->
-            <input type="text" id="map-search-input" placeholder="Search address or landmark..." 
-                   class="w-full bg-transparent p-3 text-sm text-gray-900 focus:outline-none placeholder:text-gray-400" autocomplete="off">
-            
-            <!-- Clear Button (Hidden until typing) -->
-            <button type="button" id="clear-search-btn" class="hidden p-2 text-gray-400 hover:text-gray-600 transition">
-              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path></svg>
-            </button>
-            
-            <!-- Map Modal Trigger (The right arrow button) -->
-            <button type="button" id="open-map-btn" class="p-3 text-green-700 hover:text-green-800 border-l border-gray-200 transition" title="Open Map to Pin Location">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path></svg>
-            </button>
-          </div>
-    
-          <!-- Autocomplete Dropdown Container -->
-          <ul id="search-suggestions" class="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg hidden max-h-60 overflow-y-auto divide-y divide-gray-100">
-            <!-- Suggestions injected here via JS -->
-          </ul>
+        <div
+          class="relative overflow-hidden rounded-xl border-2 border-dashed border-green-300 bg-green-50 p-6 text-center transition focus-within:ring-2 focus-within:ring-green-500 hover:bg-green-100">
+          <input id="trash-photo-input" type="file" accept="image/*" capture="environment" class="sr-only"
+            aria-label="Snap trash photo" />
+          <label for="trash-photo-input" class="cursor-pointer flex flex-col items-center gap-2">
+            <svg class="w-8 h-8 text-green-700" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round"
+                d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z">
+              </path>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
+            </svg>
+            <span class="text-sm font-bold text-green-800">Tap to take a photo</span>
+            <span class="text-xs text-green-600">or upload from gallery</span>
+          </label>
         </div>
-            
+        <p class="text-center text-[10px] text-gray-400 mt-2">Tips: Include the waste and surrounding area for better
+          analysis.</p>
+      </section>
+
+      <!-- Step 2: AI Analysis (Displays Preview & Results) -->
+      <section>
+        <h3 class="text-sm font-bold text-green-800 mb-1">2. AI Analysis Result</h3>
+        <p class="text-xs text-gray-500 mb-3">Our AI will analyze your photo here.</p>
+
+        <div id="ai-summary"
+          class="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600 whitespace-pre-wrap">
+          Waiting for photo...
+        </div>
+      </section>
+
+      <!-- Step 3: Details & User Category Dropdown -->
+      <section>
+        <h3 class="text-sm font-bold text-green-800 mb-1">3. Additional Details</h3>
+        <p class="text-xs text-gray-500 mb-3">Help us understand the issue better.</p>
+
+        <div class="space-y-4">
+
+          <!-- Unified Location Search & Map Trigger -->
+          <div class="relative w-full">
+            <label class="block text-xs font-bold text-gray-700 mb-1">Location <span
+                class="text-red-500">*</span></label>
+
+            <div
+              class="relative flex items-center w-full rounded-lg border border-gray-300 bg-white focus-within:border-green-500 focus-within:ring-1 focus-within:ring-green-500 transition-all shadow-sm">
+
+              <!-- Left Icon -->
+              <span class="pl-3 text-green-700">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path
+                    d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+                </svg>
+              </span>
+
+              <!-- Input Field -->
+              <input type="text" id="map-search-input" placeholder="Search address or landmark..."
+                class="w-full bg-transparent p-3 text-sm text-gray-900 focus:outline-none placeholder:text-gray-400"
+                autocomplete="off">
+
+              <!-- Clear Button (Hidden until typing) -->
+              <button type="button" id="clear-search-btn"
+                class="hidden p-2 text-gray-400 hover:text-gray-600 transition">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                    clip-rule="evenodd"></path>
+                </svg>
+              </button>
+
+              <!-- Map Modal Trigger (The right arrow button) -->
+              <button type="button" id="open-map-btn"
+                class="p-3 text-green-700 hover:text-green-800 border-l border-gray-200 transition"
+                title="Open Map to Pin Location">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7">
+                  </path>
+                </svg>
+              </button>
+            </div>
+
+            <!-- Autocomplete Dropdown Container -->
+            <ul id="search-suggestions"
+              class="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg hidden max-h-60 overflow-y-auto divide-y divide-gray-100">
+              <!-- Suggestions injected here via JS -->
+            </ul>
+          </div>
+
           <!-- Waste Category Dropdown -->
           <div class="space-y-4">
             <div>
-              <label for="waste-category" class="block text-xs font-bold text-gray-700 mb-1">Waste Category <span class="text-red-500">*</span></label>
-              <select id="waste-category" name="waste-category" required class="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-green-500 focus:ring-1 focus:ring-green-500">
+              <label for="waste-category" class="block text-xs font-bold text-gray-700 mb-1">Waste Category <span
+                  class="text-red-500">*</span></label>
+              <select id="waste-category" name="waste-category" required
+                class="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-green-500 focus:ring-1 focus:ring-green-500">
                 <option value="" disabled selected>Select the type of waste</option>
                 <option value="Nabubulok">Nabubulok</option>
                 <option value="Recyclable">Recyclable</option>
@@ -274,265 +314,223 @@
                 <option value="Mixed Waste">Mixed Waste</option>
               </select>
             </div>
-            
+
             <div>
-              <label for="reporter-notes" class="block text-xs font-bold text-gray-700 mb-1">Additional Notes (Optional)</label>
-              <textarea id="reporter-notes" rows="2" placeholder="e.g. Blocking the drainage, near the store..." class="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-green-500 focus:ring-1 focus:ring-green-500"></textarea>
+              <label for="reporter-notes" class="block text-xs font-bold text-gray-700 mb-1">Additional Notes
+                (Optional)</label>
+              <textarea id="reporter-notes" rows="2" placeholder="e.g. Blocking the drainage, near the store..."
+                class="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-green-500 focus:ring-1 focus:ring-green-500"></textarea>
             </div>
 
             <div class="mb-4">
               <label for="reporter-name" class="block text-xs font-bold text-gray-700 dark:text-zinc-300 mb-1">
                 Full Name (Optional)
               </label>
-              <input 
-                type="text" 
-                id="reporter-name" 
-                placeholder="e.g., Juan Dela Cruz" 
-                class="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-green-500 focus:ring-1 focus:ring-green-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white" 
-                autocomplete="name" 
-              />
+              <input type="text" id="reporter-name" placeholder="e.g., Juan Dela Cruz"
+                class="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-green-500 focus:ring-1 focus:ring-green-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+                autocomplete="name" />
             </div>
 
-         <!-- Combined Contact Information (Required) -->
-        <div>
-          <label for="reporter-contact" class="block text-xs font-bold text-gray-700 mb-1">Contact Information <span class="text-red-500">*</span></label>
-          <input 
-            type="text" 
-            id="reporter-contact" 
-            required 
-            pattern="^([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}|(09|\+639)\d{9})$" 
-            placeholder="juan@example.com OR 09171234567" 
-            class="peer block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-green-500 focus:ring-1 focus:ring-green-500 invalid:[&:not(:placeholder-shown)]:border-red-500 invalid:[&:not(:placeholder-shown)]:focus:border-red-500 invalid:[&:not(:placeholder-shown)]:focus:ring-red-500" 
-            autocomplete="on" 
-          />
-          <!-- Error Message (Hidden until invalid) -->
-          <p class="mt-1 hidden text-xs text-red-500 peer-[&:not(:placeholder-shown):invalid]:block">
-            Please enter a valid email address OR a valid PH mobile number (e.g., 09123456789).
-          </p>
-        </div>
+            <!-- Combined Contact Information (Required) -->
+            <div>
+              <label for="reporter-contact" class="block text-xs font-bold text-gray-700 mb-1">Contact Information <span
+                  class="text-red-500">*</span></label>
+              <input type="text" id="reporter-contact" required
+                pattern="^([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}|(09|\+639)\d{9})$"
+                placeholder="juan@example.com OR 09171234567"
+                class="peer block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-green-500 focus:ring-1 focus:ring-green-500 invalid:[&:not(:placeholder-shown)]:border-red-500 invalid:[&:not(:placeholder-shown)]:focus:border-red-500 invalid:[&:not(:placeholder-shown)]:focus:ring-red-500"
+                autocomplete="on" />
+              <!-- Error Message (Hidden until invalid) -->
+              <p class="mt-1 hidden text-xs text-red-500 peer-[&:not(:placeholder-shown):invalid]:block">
+                Please enter a valid email address OR a valid PH mobile number (e.g., 09123456789).
+              </p>
+            </div>
 
 
-                  </div>
-        </section>
+          </div>
+      </section>
 
-        <!-- Step 4: Submit -->
-        <section>
-          <h3 class="text-sm font-bold text-green-800 mb-1">4. Submit Report</h3>
-          <p class="text-xs text-gray-500 mb-3">Please review and submit your report.</p>
-          
-          <button id="submit-report-btn" type="button" class="flex w-full items-center justify-center gap-2 rounded-xl bg-green-700 px-6 py-4 text-sm font-bold text-white shadow-md transition hover:bg-green-800 focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
-            <svg id="submit-spinner" class="hidden h-4 w-4 animate-spin text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-            <span id="submit-text">Submit Report</span>
-          </button>
-          
-          <p class="text-center text-[10px] text-gray-400 mt-3 flex items-center justify-center gap-1">
-            <span>🔒</span> Your report is secure and confidential.
-          </p>
-        </section>
-      </div>
+      <!-- Step 4: Submit -->
+      <section>
+        <h3 class="text-sm font-bold text-green-800 mb-1">4. Submit Report</h3>
+        <p class="text-xs text-gray-500 mb-3">Please review and submit your report.</p>
+
+        <button id="submit-report-btn" type="button"
+          class="flex w-full items-center justify-center gap-2 rounded-xl bg-green-700 px-6 py-4 text-sm font-bold text-white shadow-md transition hover:bg-green-800 focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+          <svg id="submit-spinner" class="hidden h-4 w-4 animate-spin text-white" xmlns="http://www.w3.org/2000/svg"
+            fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+            </path>
+          </svg>
+          <span id="submit-text">Submit Report</span>
+        </button>
+
+        <p class="text-center text-[10px] text-gray-400 mt-3 flex items-center justify-center gap-1">
+          <span>🔒</span> Your report is secure and confidential.
+        </p>
+      </section>
     </div>
+  </div>
 
 
-      <!-- ============================================================
+  <!-- ============================================================
          FLASH MESSAGE SUCCESS AND ERROR MODALS
          ============================================================ -->
 
-      <!-- Success Modal (Flash card style) -->
-      <div
-        id="success-modal"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4 py-8 transition-all duration-200 ease-in-out hidden"
-        aria-modal="true"
-        role="dialog"
-        tabindex="-1"
-      >
-        <div
-          class="relative w-full max-w-sm rounded-3xl bg-white dark:bg-zinc-900 px-6 pt-8 pb-6 shadow-2xl flex flex-col items-center"
-        >
-          <!-- Large green circle with white check -->
-          <div
-            class="flex items-center justify-center w-20 h-20 rounded-full bg-green-500 -mt-16 shadow-lg mb-5"
-          >
-            <svg
-              class="w-10 h-10 text-white"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="4"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M6 13l4 4 8-8"
-              />
-            </svg>
-          </div>
-          <h3
-            class="text-2xl font-extrabold text-green-700 dark:text-green-400 uppercase tracking-wider mb-2"
-          >
-            Success!
-          </h3>
-          <p class="text-gray-600 dark:text-gray-300 mb-6 text-center">
-            Your report has been validated and flagged on the driver's map.
-          </p>
-          <button
-            id="close-success-modal"
-            type="button"
-            class="w-full mt-2 inline-flex items-center justify-center gap-2 rounded-full bg-green-600 px-8 py-3 text-base font-bold text-white shadow-md shadow-green-600/30 transition hover:bg-green-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2 dark:bg-green-500 dark:hover:bg-green-600 dark:focus-visible:ring-green-400 dark:focus-visible:ring-offset-zinc-900"
-          >
-            Awesome!
-          </button>
-        </div>
+  <!-- Success Modal (Flash card style) -->
+  <div id="success-modal"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4 py-8 transition-all duration-200 ease-in-out hidden"
+    aria-modal="true" role="dialog" tabindex="-1">
+    <div
+      class="relative w-full max-w-sm rounded-3xl bg-white dark:bg-zinc-900 px-6 pt-8 pb-6 shadow-2xl flex flex-col items-center">
+      <!-- Large green circle with white check -->
+      <div class="flex items-center justify-center w-20 h-20 rounded-full bg-green-500 -mt-16 shadow-lg mb-5">
+        <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" stroke-width="4" viewBox="0 0 24 24"
+          aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 13l4 4 8-8" />
+        </svg>
       </div>
+      <h3 class="text-2xl font-extrabold text-green-700 dark:text-green-400 uppercase tracking-wider mb-2">
+        Success!
+      </h3>
+      <p class="text-gray-600 dark:text-gray-300 mb-6 text-center">
+        Your report has been validated and flagged on the driver's map.
+      </p>
+      <button id="close-success-modal" type="button"
+        class="w-full mt-2 inline-flex items-center justify-center gap-2 rounded-full bg-green-600 px-8 py-3 text-base font-bold text-white shadow-md shadow-green-600/30 transition hover:bg-green-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2 dark:bg-green-500 dark:hover:bg-green-600 dark:focus-visible:ring-green-400 dark:focus-visible:ring-offset-zinc-900">
+        Awesome!
+      </button>
+    </div>
+  </div>
 
-      <!-- Error Modal (Flash card style, new) -->
-      <div
-        id="error-modal"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4 py-8 transition-all duration-200 ease-in-out hidden"
-        aria-modal="true"
-        role="dialog"
-        tabindex="-1"
-      >
-        <div
-          class="relative w-full max-w-sm rounded-3xl bg-white dark:bg-zinc-900 px-6 pt-8 pb-6 shadow-2xl flex flex-col items-center"
-        >
-          <!-- Large red circle with white X -->
-          <div
-            class="flex items-center justify-center w-20 h-20 rounded-full bg-red-500 -mt-16 shadow-lg mb-5"
-          >
-            <svg
-              class="w-10 h-10 text-white"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="4"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M6 6l12 12M6 18L18 6"
-              />
-            </svg>
-          </div>
-          <h3
-            class="text-2xl font-extrabold text-red-700 dark:text-red-400 uppercase tracking-wider mb-2"
-          >
-            Error!
-          </h3>
-          <p id= "error-modal-msg"class="text-gray-600 dark:text-gray-300 mb-6 text-center">
-            Something went wrong or no trash was detected. Please try again.
-          </p>
-          <button
-            id="close-error-modal"
-            type="button"
-            class="w-full mt-2 inline-flex items-center justify-center gap-2 rounded-full bg-red-600 px-8 py-3 text-base font-bold text-white shadow-md shadow-red-600/30 transition hover:bg-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 dark:bg-red-500 dark:hover:bg-red-600 dark:focus-visible:ring-red-400 dark:focus-visible:ring-offset-zinc-900"
-          >
-            Try Again
-          </button>
-        </div>
+  <!-- Error Modal (Flash card style, new) -->
+  <div id="error-modal"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4 py-8 transition-all duration-200 ease-in-out hidden"
+    aria-modal="true" role="dialog" tabindex="-1">
+    <div
+      class="relative w-full max-w-sm rounded-3xl bg-white dark:bg-zinc-900 px-6 pt-8 pb-6 shadow-2xl flex flex-col items-center">
+      <!-- Large red circle with white X -->
+      <div class="flex items-center justify-center w-20 h-20 rounded-full bg-red-500 -mt-16 shadow-lg mb-5">
+        <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" stroke-width="4" viewBox="0 0 24 24"
+          aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 6l12 12M6 18L18 6" />
+        </svg>
       </div>
+      <h3 class="text-2xl font-extrabold text-red-700 dark:text-red-400 uppercase tracking-wider mb-2">
+        Error!
+      </h3>
+      <p id="error-modal-msg" class="text-gray-600 dark:text-gray-300 mb-6 text-center">
+        Something went wrong or no trash was detected. Please try again.
+      </p>
+      <button id="close-error-modal" type="button"
+        class="w-full mt-2 inline-flex items-center justify-center gap-2 rounded-full bg-red-600 px-8 py-3 text-base font-bold text-white shadow-md shadow-red-600/30 transition hover:bg-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 dark:bg-red-500 dark:hover:bg-red-600 dark:focus-visible:ring-red-400 dark:focus-visible:ring-offset-zinc-900">
+        Try Again
+      </button>
+    </div>
+  </div>
 
-      <script>
-        // --- Dynamic location rendering from ?barangay & ?street ---
-        (function () {
-          function sanitize(str) {
-            return String(str).replace(/[<>]/g, "");
-          }
-          var params = new URLSearchParams(window.location.search);
-          var barangay = params.get("barangay");
-          var street = params.get("street");
-          var locationStr = "📍 Location: Brgy 630, Mabini St.";
-          if (barangay || street) {
-            var cleanBarangay = barangay ? sanitize(barangay) : "";
-            var cleanStreet = street ? sanitize(street) : "";
-            if (cleanBarangay && cleanStreet) {
-              locationStr = `📍 Location: Brgy ${cleanBarangay}, ${cleanStreet}`;
-            } else if (cleanBarangay) {
-              locationStr = `📍 Location: Brgy ${cleanBarangay}`;
-            } else if (cleanStreet) {
-              locationStr = `📍 Location: ${cleanStreet}`;
+  <script>
+    // --- Dynamic location rendering from ?barangay & ?street ---
+    (function () {
+      function sanitize(str) {
+        return String(str).replace(/[<>]/g, "");
+      }
+      var params = new URLSearchParams(window.location.search);
+      var barangay = params.get("barangay");
+      var street = params.get("street");
+      var locationStr = "📍 Location: Brgy 630, Mabini St.";
+      if (barangay || street) {
+        var cleanBarangay = barangay ? sanitize(barangay) : "";
+        var cleanStreet = street ? sanitize(street) : "";
+        if (cleanBarangay && cleanStreet) {
+          locationStr = `📍 Location: Brgy ${cleanBarangay}, ${cleanStreet}`;
+        } else if (cleanBarangay) {
+          locationStr = `📍 Location: Brgy ${cleanBarangay}`;
+        } else if (cleanStreet) {
+          locationStr = `📍 Location: ${cleanStreet}`;
+        }
+      }
+      var locElem = document.getElementById("street-location");
+      if (locElem) locElem.textContent = locationStr;
+    })();
+
+    // --- Modal logic (Success/Error Flash Message) ---
+    (function () {
+      var successModal = document.getElementById("success-modal");
+      var closeSuccessBtn = document.getElementById("close-success-modal");
+      var errorModal = document.getElementById("error-modal");
+      var closeErrorBtn = document.getElementById("close-error-modal");
+
+      window.showSuccessModal = function () {
+        if (successModal) successModal.classList.remove("hidden");
+      };
+
+      window.showErrorModal = function (customMessage) {
+        if (errorModal) {
+          // Update the text dynamically if a message is provided
+          var msgElement = document.getElementById("error-modal-msg");
+          if (msgElement) {
+            if (customMessage) {
+              msgElement.textContent = customMessage;
+            } else {
+              // Fallback to the default message
+              msgElement.textContent = "Something went wrong or no trash was detected. Please try again.";
             }
           }
-          var locElem = document.getElementById("street-location");
-          if (locElem) locElem.textContent = locationStr;
-        })();
+          errorModal.classList.remove("hidden");
+        }
+      };
 
-        // --- Modal logic (Success/Error Flash Message) ---
-        (function () {
-          var successModal = document.getElementById("success-modal");
-          var closeSuccessBtn = document.getElementById("close-success-modal");
-          var errorModal = document.getElementById("error-modal");
-          var closeErrorBtn = document.getElementById("close-error-modal");
+      function clearReporterFields() {
+        var name = document.getElementById("reporter-name");
+        var category = document.getElementById("waste-category");
+        var contact = document.getElementById("contact-info");
+        var notes = document.getElementById("reporter-notes");
+        if (name) name.value = "";
+        if (category) category.selectedIndex = 0;
+        if (contact) contact.value = "";
+        if (notes) notes.value = "";
+        // Optionally reset camera/photo input and results too if needed
+        var photoInput = document.getElementById("trash-photo-input");
+        if (photoInput) photoInput.value = "";
+        var summary = document.getElementById("ai-summary");
+        if (summary)
+          summary.textContent =
+            "AI Analysis will appear here after snapping a photo...";
+        // Hide all alerts if using showAlert/hideAlerts elsewhere
+        if (typeof window.hideAlerts === "function") window.hideAlerts();
+      }
 
-          window.showSuccessModal = function () {
-            if (successModal) successModal.classList.remove("hidden");
-          };
+      if (closeSuccessBtn) {
+        closeSuccessBtn.addEventListener("click", function () {
+          if (successModal) successModal.classList.add("hidden");
+          clearReporterFields();
+        });
+      }
+      if (closeErrorBtn) {
+        closeErrorBtn.addEventListener("click", function () {
+          if (errorModal) errorModal.classList.add("hidden");
+        });
+      }
 
-          window.showErrorModal = function (customMessage) {
-            if (errorModal) {
-              // Update the text dynamically if a message is provided
-              var msgElement = document.getElementById("error-modal-msg");
-              if (msgElement) {
-                if (customMessage) {
-                  msgElement.textContent = customMessage;
-                } else {
-                  // Fallback to the default message
-                  msgElement.textContent = "Something went wrong or no trash was detected. Please try again.";
-                }
-              }
-              errorModal.classList.remove("hidden");
-            }
-          };
-
-          function clearReporterFields() {
-            var name = document.getElementById("reporter-name");
-            var category = document.getElementById("waste-category");
-            var contact = document.getElementById("contact-info");
-            var notes = document.getElementById("reporter-notes");
-            if (name) name.value = "";
-            if (category) category.selectedIndex = 0;
-            if (contact) contact.value = "";
-            if (notes) notes.value = "";
-            // Optionally reset camera/photo input and results too if needed
-            var photoInput = document.getElementById("trash-photo-input");
-            if (photoInput) photoInput.value = "";
-            var summary = document.getElementById("ai-summary");
-            if (summary)
-              summary.textContent =
-                "AI Analysis will appear here after snapping a photo...";
-            // Hide all alerts if using showAlert/hideAlerts elsewhere
-            if (typeof window.hideAlerts === "function") window.hideAlerts();
+      // For accessibility: hide modal on "Escape" keydown (closes both)
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape" || e.key === "Esc") {
+          if (successModal && !successModal.classList.contains("hidden")) {
+            successModal.classList.add("hidden");
+            clearReporterFields();
           }
-
-          if (closeSuccessBtn) {
-            closeSuccessBtn.addEventListener("click", function () {
-              if (successModal) successModal.classList.add("hidden");
-              clearReporterFields();
-            });
+          if (errorModal && !errorModal.classList.contains("hidden")) {
+            errorModal.classList.add("hidden");
           }
-          if (closeErrorBtn) {
-            closeErrorBtn.addEventListener("click", function () {
-              if (errorModal) errorModal.classList.add("hidden");
-            });
-          }
+        }
+      });
+    })();
+  </script>
 
-          // For accessibility: hide modal on "Escape" keydown (closes both)
-          document.addEventListener("keydown", function (e) {
-            if (e.key === "Escape" || e.key === "Esc") {
-              if (successModal && !successModal.classList.contains("hidden")) {
-                successModal.classList.add("hidden");
-                clearReporterFields();
-              }
-              if (errorModal && !errorModal.classList.contains("hidden")) {
-                errorModal.classList.add("hidden");
-              }
-            }
-          });
-        })();
-      </script>
-
-       <!-- Leaflet Map Integration
+  <!-- Leaflet Map Integration
       <div
       id="map-modal"
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-6 transition-all duration-200 ease-in-out hidden"
@@ -567,59 +565,80 @@
       </div>
     </div>  -->
 
-    <!-- Leaflet Map Integration (Modernized) -->
-    <div
-    id="map-modal"
+  <!-- Leaflet Map Integration (Modernized) -->
+  <div id="map-modal"
     class="fixed inset-0 z-[60] flex items-center justify-center bg-gray-900/60 backdrop-blur-sm sm:p-6 transition-all hidden"
-    aria-modal="true"
-    role="dialog"
-  >
-    <div class="relative w-full max-w-lg sm:rounded-[2rem] bg-white shadow-2xl flex flex-col h-full sm:h-[85vh] sm:max-h-[850px] overflow-hidden border border-gray-100">
-      
+    aria-modal="true" role="dialog">
+    <div
+      class="relative w-full max-w-lg sm:rounded-[2rem] bg-white shadow-2xl flex flex-col h-full sm:h-[85vh] sm:max-h-[850px] overflow-hidden border border-gray-100">
+
       <div class="absolute top-4 left-4 right-4 z-[400] flex justify-between items-start pointer-events-none">
-        
-        <div class="bg-white/95 backdrop-blur-md px-4 py-2.5 rounded-full shadow-md border border-gray-200 pointer-events-auto flex items-center gap-2">
-          <svg class="w-5 h-5 text-red-600" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+
+        <div
+          class="bg-white/95 backdrop-blur-md px-4 py-2.5 rounded-full shadow-md border border-gray-200 pointer-events-auto flex items-center gap-2">
+          <svg class="w-5 h-5 text-red-600" fill="currentColor" viewBox="0 0 24 24">
+            <path
+              d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+          </svg>
           <h3 class="text-xs font-black text-gray-800 tracking-wide uppercase">Pin Location</h3>
         </div>
-        
-        <button id="close-map-icon" class="w-11 h-11 flex items-center justify-center bg-white/95 backdrop-blur-md text-gray-600 rounded-full shadow-md hover:text-red-500 hover:bg-gray-50 transition pointer-events-auto border border-gray-200">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
+
+        <button id="close-map-icon"
+          class="w-11 h-11 flex items-center justify-center bg-white/95 backdrop-blur-md text-gray-600 rounded-full shadow-md hover:text-red-500 hover:bg-gray-50 transition pointer-events-auto border border-gray-200">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
         </button>
       </div>
-      
+
       <div id="leaflet-map" class="w-full h-full z-0"></div>
-      
+
       <div class="absolute bottom-0 left-0 right-0 z-[400] pointer-events-none flex flex-col items-end gap-3 sm:p-4">
-        
+
         <div class="px-4 sm:px-0">
-          <button type="button" id="gps-fallback-btn" class="pointer-events-auto flex items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-bold text-gray-700 shadow-[0_4px_15px_rgba(0,0,0,0.1)] transition hover:bg-gray-50 hover:text-green-700 border border-gray-200">
-            <svg class="w-5 h-5 text-green-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4"></path></svg>
+          <button type="button" id="gps-fallback-btn"
+            class="pointer-events-auto flex items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-bold text-gray-700 shadow-[0_4px_15px_rgba(0,0,0,0.1)] transition hover:bg-gray-50 hover:text-green-700 border border-gray-200">
+            <svg class="w-5 h-5 text-green-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4">
+              </path>
+            </svg>
             My Location
           </button>
         </div>
 
-        <div class="pointer-events-auto bg-white w-full rounded-t-3xl sm:rounded-3xl p-6 shadow-[0_-10px_40px_rgba(0,0,0,0.15)] flex flex-col gap-5 border border-gray-100">
-          
+        <div
+          class="pointer-events-auto bg-white w-full rounded-t-3xl sm:rounded-3xl p-6 shadow-[0_-10px_40px_rgba(0,0,0,0.15)] flex flex-col gap-5 border border-gray-100">
+
           <div class="w-12 h-1.5 bg-gray-200 rounded-full mx-auto -mt-2 mb-1"></div>
-          
+
           <div class="flex items-start gap-4">
-            <div class="mt-1 flex-shrink-0 w-12 h-12 bg-green-50 rounded-full flex items-center justify-center border border-green-100 relative shadow-inner">
-              <svg class="w-6 h-6 text-red-600 relative z-10 drop-shadow-sm" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+            <div
+              class="mt-1 flex-shrink-0 w-12 h-12 bg-green-50 rounded-full flex items-center justify-center border border-green-100 relative shadow-inner">
+              <svg class="w-6 h-6 text-red-600 relative z-10 drop-shadow-sm" fill="currentColor" viewBox="0 0 24 24">
+                <path
+                  d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+              </svg>
               <div class="absolute bottom-2 w-6 h-px bg-green-200 rotate-45"></div>
               <div class="absolute bottom-2 w-6 h-px bg-green-200 -rotate-45"></div>
             </div>
-            
+
             <div class="flex-1">
               <h4 class="text-[15px] font-extrabold text-gray-900 mb-1">Pinned Location</h4>
-              <p id="map-address-text" class="text-xs text-gray-600 font-medium line-clamp-3 leading-relaxed w-full pr-2">
+              <p id="map-address-text"
+                class="text-xs text-gray-600 font-medium line-clamp-3 leading-relaxed w-full pr-2">
                 Drag the map to pin the exact trash location.
               </p>
             </div>
           </div>
-          
-          <button type="button" id="confirm-location-btn" class="w-full flex items-center justify-center rounded-xl bg-[#0b7a39] px-6 py-4 text-[15px] font-bold text-white shadow-md transition-transform active:scale-[0.98] hover:bg-green-800 disabled:opacity-50 disabled:cursor-not-allowed">
-            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+
+          <button type="button" id="confirm-location-btn"
+            class="w-full flex items-center justify-center rounded-xl bg-[#0b7a39] px-6 py-4 text-[15px] font-bold text-white shadow-md transition-transform active:scale-[0.98] hover:bg-green-800 disabled:opacity-50 disabled:cursor-not-allowed">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round"
+                d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+            </svg>
             Confirm This Pin
           </button>
         </div>
@@ -628,7 +647,8 @@
     </div>
   </div>
 
-    <!-- Photo capture + Gemini AI analysis (ES module — imports ./config.js) -->
-    <script type="module" src="app.js"></script>
-  </body>
+  <!-- Photo capture + Gemini AI analysis (ES module — imports ./config.js) -->
+  <script type="module" src="app.js"></script>
+</body>
+
 </html>
