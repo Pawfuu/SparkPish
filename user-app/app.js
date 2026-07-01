@@ -139,7 +139,7 @@ function updateStepper() {
 
   // Keep at step 4 if submitting OR if the report is finishe
   if (isSubmitting || isReportComplete) {
-    activeStep = 4; 
+    activeStep = 4;
   }
 
   const steps = document.querySelectorAll(".stepper-step");
@@ -274,18 +274,18 @@ function showPhotoPreview(file) {
 
   setSummaryHtml(
     '<div class="space-y-3">' +
-      "<img" +
-      ' src="' +
-      previewObjectUrl +
-      '"' +
-      ' alt="Preview of captured trash photo"' +
-      ' class="w-full max-h-56 rounded-xl object-cover border border-gray-200 dark:border-zinc-700"' +
-      "/>" +
-      '<p class="text-gray-600 dark:text-gray-400">' +
-      "Photo ready. Review the preview, add any notes, then tap " +
-      "<strong>Submit Trash Report</strong>." +
-      "</p>" +
-      "</div>",
+    "<img" +
+    ' src="' +
+    previewObjectUrl +
+    '"' +
+    ' alt="Preview of captured trash photo"' +
+    ' class="w-full max-h-56 rounded-xl object-cover border border-gray-200 dark:border-zinc-700"' +
+    "/>" +
+    '<p class="text-gray-600 dark:text-gray-400">' +
+    "Photo ready. Review the preview, add any notes, then tap " +
+    "<strong>Submit Trash Report</strong>." +
+    "</p>" +
+    "</div>",
   );
 }
 
@@ -675,14 +675,14 @@ if (submitBtn) {
         location: finalAddress || getReportLocation(),
         coordinates: finalCoordinates || null,
         contactInfo: contactValue,
-        reporterName: reporterName || "Anonymous", 
+        reporterName: reporterName || "Anonymous",
         notes: reporter.notes,
         severityScore: result.severity_score != null ? result.severity_score : 3,
       };
 
 
       const reportId = await submitTrashReport(reportData, selectedFile);
-      
+
       isReportComplete = true;
 
       console.log("Basura-Pin report submitted:", {
@@ -701,7 +701,7 @@ if (submitBtn) {
       console.error("Basura-Pin submission error:", error);
       setSummary(
         "Something went wrong while processing your report.\n\n" +
-          getErrorMessage(error),
+        getErrorMessage(error),
       );
 
       if (typeof window.showErrorModal === "function") {
@@ -811,22 +811,22 @@ if (submitBtn) {
     }
   });
 
-// ---------------------------------------------------------------------------
-// App Reset Logic
-// ---------------------------------------------------------------------------
-// When the user dismisses the success modal, reset the internal app state back to Step 1
-document.getElementById("close-success-modal")?.addEventListener("click", () => {
-  selectedFile = null;
-  isReportComplete = false;
-  finalCoordinates = null;
-  finalAddress = "";
-  
-  // Clear the map search bar explicitly
-  const searchInput = document.getElementById("map-search-input");
-  if (searchInput) searchInput.value = "";
-  document.getElementById("clear-search-btn")?.classList.add("hidden");
-  
-  // Recalculate the stepper (will drop back to Step 1)
-  updateStepper(); 
-});
+  // ---------------------------------------------------------------------------
+  // App Reset Logic
+  // ---------------------------------------------------------------------------
+  // When the user dismisses the success modal, reset the internal app state back to Step 1
+  document.getElementById("close-success-modal")?.addEventListener("click", () => {
+    selectedFile = null;
+    isReportComplete = false;
+    finalCoordinates = null;
+    finalAddress = "";
+
+    // Clear the map search bar explicitly
+    const searchInput = document.getElementById("map-search-input");
+    if (searchInput) searchInput.value = "";
+    document.getElementById("clear-search-btn")?.classList.add("hidden");
+
+    // Recalculate the stepper (will drop back to Step 1)
+    updateStepper();
+  });
 }

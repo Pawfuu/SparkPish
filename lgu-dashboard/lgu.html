@@ -58,14 +58,14 @@
         padding-right: 0.5rem;
       }
 
-      #main-sidebar:not(:hover) .p-4 .flex {
+      #main-sidebar:not(:hover) .profile-container {
         justify-content: center;
         padding-left: 0;
         padding-right: 0;
       }
 
-      #main-sidebar:not(:hover) .p-4 button {
-        padding-left: 1.375rem;
+      #main-sidebar:not(:hover) .logout-btn {
+        padding-left: 1.625rem;
         /* center the 20px logout icon */
       }
 
@@ -242,12 +242,12 @@
         padding: 0.75rem 0.25rem;
       }
 
-      #main-sidebar .p-4 .flex {
+      #main-sidebar .profile-container {
         justify-content: center;
         padding: 0;
       }
 
-      #main-sidebar .p-4 button {
+      #main-sidebar .logout-btn {
         padding-left: 0.875rem;
       }
     }
@@ -368,23 +368,25 @@
     </nav>
 
     <!-- Footer Profile & Logout -->
-    <div class="p-4 border-t border-slate-100 flex flex-col gap-3">
-      <div class="flex items-center gap-3 px-2">
+    <div class="p-4 border-t border-slate-100 flex flex-col gap-3.5">
+      <div class="profile-container flex items-center gap-3 px-3 transition-all duration-300">
         <img src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=256&auto=format&fit=crop"
-          alt="Admin Profile" class="w-9 h-9 rounded-full object-cover flex-shrink-0 border border-slate-200" />
+          alt="Admin Profile"
+          class="w-10 h-10 rounded-full object-cover flex-shrink-0 border-2 border-emerald-500/20 shadow-sm" />
         <div class="sidebar-text min-w-0 flex-1 transition-opacity duration-300">
-          <p class="text-xs font-black text-slate-800 truncate leading-tight">
+          <p class="text-xs font-bold text-slate-800 truncate leading-tight">
             Maria Santos
           </p>
-          <p class="text-[10px] text-slate-500 font-semibold truncate">
+          <p class="text-[10px] text-slate-400 font-semibold truncate mt-0.5">
             Chief Env. Officer
           </p>
         </div>
       </div>
-      <button
-        class="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold rounded-xl text-rose-500 hover:bg-rose-50 transition-colors"
+      <button id="logout-btn"
+        class="logout-btn w-full flex items-center gap-3 px-3.5 py-3 text-xs font-bold rounded-xl text-rose-500 hover:bg-rose-50 hover:text-rose-700 transition-all duration-300 mt-1"
         title="Log out">
-        <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <svg class="w-5 h-5 flex-shrink-0 text-rose-500" fill="none" stroke="currentColor" stroke-width="2"
+          viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round"
             d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
         </svg>
@@ -398,7 +400,8 @@
        ========================================== -->
   <div id="main-content-wrapper" class="flex-1 flex flex-col min-h-screen transition-all duration-300">
     <!-- Top Header -->
-    <header class="h-16 bg-white border-b border-slate-200 px-8 flex items-center justify-between sticky top-0 z-30">
+    <header id="main-header"
+      class="h-16 bg-white border-b border-slate-200 px-8 flex items-center justify-between sticky top-0 z-30">
       <div>
         <h2 id="view-title" class="text-lg font-bold text-slate-900">Dashboard</h2>
       </div>
@@ -729,8 +732,8 @@
               Manage and monitor all civic reports
             </p>
           </div>
-          <!-- Mockup Export Action Button -->
-          <button onclick="alert('Exporting dataset as CSV...')"
+          <!-- Export Action Button -->
+          <button id="export-btn"
             class="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg shadow-sm transition-colors flex items-center gap-1.5 cursor-pointer">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round"
@@ -742,18 +745,56 @@
 
         <!-- Filter Control Toolbar -->
         <div
-          class="bg-white p-4 rounded-xl border border-slate-200 flex flex-col sm:flex-row gap-4 items-center justify-between shadow-sm">
-          <div class="relative w-full sm:max-w-xs">
-            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-              <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
+          class="bg-white p-4 rounded-xl border border-slate-200 flex flex-col xl:flex-row gap-4 items-center justify-between shadow-sm">
+          <div class="flex flex-col sm:flex-row flex-wrap items-center gap-3 w-full xl:w-auto">
+            <!-- Search reports input -->
+            <div class="relative w-full sm:w-64">
+              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+              <input id="report-search-input" type="text" placeholder="Search reports..."
+                class="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all" />
             </div>
-            <input id="report-search-input" type="text" placeholder="Search reports..."
-              class="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all" />
+
+            <!-- Status filter dropdown -->
+            <select id="status-filter-select"
+              class="w-full sm:w-auto bg-slate-50 border border-slate-200 text-slate-700 text-xs rounded-lg px-3 py-2 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all cursor-pointer">
+              <option value="all" selected>All Status</option>
+              <option value="Pending Verification">Pending Verification</option>
+              <option value="In Progress">In Progress</option>
+              <option value="Resolved">Resolved</option>
+            </select>
+
+            <!-- Category filter dropdown -->
+            <select id="category-filter-select"
+              class="w-full sm:w-auto bg-slate-50 border border-slate-200 text-slate-700 text-xs rounded-lg px-3 py-2 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all cursor-pointer">
+              <option value="all" selected>All Categories</option>
+            </select>
+
+            <!-- Barangay filter dropdown -->
+            <select id="barangay-filter-select"
+              class="w-full sm:w-auto bg-slate-50 border border-slate-200 text-slate-700 text-xs rounded-lg px-3 py-2 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all cursor-pointer">
+              <option value="all" selected>All Barangays</option>
+              <option value="coming-soon">Coming Soon...</option>
+            </select>
+
+            <!-- Filter button (functions as Reset Filters) -->
+            <button id="filter-btn"
+              class="w-full sm:w-auto px-4 py-2 border border-slate-200 rounded-lg text-xs font-bold text-emerald-600 bg-white hover:bg-slate-50 transition-colors flex items-center justify-center gap-1.5 cursor-pointer">
+              <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2"
+                viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+              </svg>
+              <span>Filter</span>
+            </button>
           </div>
 
-          <div class="flex items-center gap-3">
+          <!-- Sort Select -->
+          <div class="flex items-center gap-3 w-full xl:w-auto justify-end">
             <span class="text-xs font-semibold text-slate-500 uppercase">Sort By:</span>
             <select id="sort-select"
               class="bg-slate-50 border border-slate-200 text-slate-700 text-xs rounded-lg px-3 py-2 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all cursor-pointer">
@@ -799,6 +840,7 @@
                   <th class="px-6 py-4">Location</th>
                   <th class="px-6 py-4">Status</th>
                   <th class="px-6 py-4">Priority</th>
+                  <th class="px-6 py-4">Reported At</th>
                   <th class="px-6 py-4 text-right">Actions</th>
                 </tr>
               </thead>
@@ -809,8 +851,9 @@
           </div>
         </div>
 
-        <div class="flex justify-between items-center text-xs font-medium text-slate-500 px-2">
+        <div class="flex justify-between items-center text-xs font-medium text-slate-500 px-2 mt-4">
           <span id="table-results-counter">Showing 0 reports</span>
+          <div id="pagination-controls" class="flex items-center gap-1.5"></div>
         </div>
       </section>
 
