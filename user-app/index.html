@@ -148,13 +148,19 @@
       
       <!-- Header / Logo Area -->
       <header class="p-6 border-b border-gray-100 flex items-center gap-4">
-        <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center shrink-0">
-          <span class="text-2xl">📍</span>
+        <div class="w-12 h-12 bg-green rounded-full flex items-center justify-center shrink-0">
+          <img 
+            src="assets/logo1_whtbg.png" 
+            alt="E-Tapon Mo Logo" 
+            class="h-12 w-auto object-contain"
+          />
         </div>
         <div>
+          
           <h2 class="text-2xl font-bold text-green-800">E-Tapon Mo</h2>
-          <p class="text-xs text-gray-500">Magtulungan para sa malinis na komunidad.</p>
+          <p class="text-xs text-gray-500">Bayan, Kalikasan, Kinabukasan</p>
         </div>
+
       </header>
 
       <div class="p-6 space-y-8">
@@ -255,13 +261,12 @@
               <label for="waste-category" class="block text-xs font-bold text-gray-700 mb-1">Waste Category <span class="text-red-500">*</span></label>
               <select id="waste-category" name="waste-category" required class="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-green-500 focus:ring-1 focus:ring-green-500">
                 <option value="" disabled selected>Select the type of waste</option>
+                <option value="mixed">Nabubulok</option>
+                <option value="organic">Recyclable</option>
+                <option value="plastic">Non-recyclable</option>
+                <option value="construction">Hazardous Waste</option>
+                <option value="construction">Healthcare Waste</option>
                 <option value="mixed">Mixed Waste</option>
-                <option value="organic">Organic Waste</option>
-                <option value="plastic">Plastic Waste</option>
-                <option value="construction">Construction Debris</option>
-                <option value="hazardous">Hazardous Waste</option>
-                <option value="drainage">Drainage Waste</option>
-                <option value="illegal">Illegal Dumping</option>
               </select>
             </div>
             
@@ -269,27 +274,40 @@
               <label for="reporter-notes" class="block text-xs font-bold text-gray-700 mb-1">Additional Notes (Optional)</label>
               <textarea id="reporter-notes" rows="2" placeholder="e.g. Blocking the drainage, near the store..." class="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-green-500 focus:ring-1 focus:ring-green-500"></textarea>
             </div>
-            
+
+            <div class="mb-4">
+              <label for="reporter-name" class="block text-xs font-bold text-gray-700 dark:text-zinc-300 mb-1">
+                Full Name (Optional)
+              </label>
+              <input 
+                type="text" 
+                id="reporter-name" 
+                placeholder="e.g., Juan Dela Cruz" 
+                class="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-green-500 focus:ring-1 focus:ring-green-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white" 
+                autocomplete="name" 
+              />
+            </div>
+
          <!-- Combined Contact Information (Required) -->
-<div>
-  <label for="reporter-contact" class="block text-xs font-bold text-gray-700 mb-1">Contact Information <span class="text-red-500">*</span></label>
-  <input 
-    type="text" 
-    id="reporter-contact" 
-    required 
-    pattern="^([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}|(09|\+639)\d{9})$" 
-    placeholder="juan@example.com OR 09171234567" 
-    class="peer block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-green-500 focus:ring-1 focus:ring-green-500 invalid:[&:not(:placeholder-shown)]:border-red-500 invalid:[&:not(:placeholder-shown)]:focus:border-red-500 invalid:[&:not(:placeholder-shown)]:focus:ring-red-500" 
-    autocomplete="on" 
-  />
-  <!-- Error Message (Hidden until invalid) -->
-  <p class="mt-1 hidden text-xs text-red-500 peer-[&:not(:placeholder-shown):invalid]:block">
-    Please enter a valid email address OR a valid PH mobile number (e.g., 09123456789).
-  </p>
-</div>
+        <div>
+          <label for="reporter-contact" class="block text-xs font-bold text-gray-700 mb-1">Contact Information <span class="text-red-500">*</span></label>
+          <input 
+            type="text" 
+            id="reporter-contact" 
+            required 
+            pattern="^([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}|(09|\+639)\d{9})$" 
+            placeholder="juan@example.com OR 09171234567" 
+            class="peer block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-green-500 focus:ring-1 focus:ring-green-500 invalid:[&:not(:placeholder-shown)]:border-red-500 invalid:[&:not(:placeholder-shown)]:focus:border-red-500 invalid:[&:not(:placeholder-shown)]:focus:ring-red-500" 
+            autocomplete="on" 
+          />
+          <!-- Error Message (Hidden until invalid) -->
+          <p class="mt-1 hidden text-xs text-red-500 peer-[&:not(:placeholder-shown):invalid]:block">
+            Please enter a valid email address OR a valid PH mobile number (e.g., 09123456789).
+          </p>
+        </div>
 
 
-          </div>
+                  </div>
         </section>
 
         <!-- Step 4: Submit -->
