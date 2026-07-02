@@ -126,9 +126,9 @@ Our platform is divided into two seamless experiences: a public-facing reporting
 
 ### 🤖 AI Image Validation
 
-|                                 ✅ Successful Report                                 |                             ❌ Invalid Submission                              |
-| :----------------------------------------------------------------------------------: | :----------------------------------------------------------------------------: |
-| <img src="/SparkPish/user-app/assets/success.gif width="100%" alt="Successful Flow"> | <img src="/SparkPish/user-app/assets/Error.gif" width="100%" alt="Error Flow"> |
+|                                 ✅ Successful Report                                  |                             ❌ Invalid Submission                              |
+| :-----------------------------------------------------------------------------------: | :----------------------------------------------------------------------------: |
+| <img src="/SparkPish/user-app/assets/success.gif" width="100%" alt="Successful Flow"> | <img src="/SparkPish/user-app/assets/Error.gif" width="100%" alt="Error Flow"> |
 
 ### 🏛️ LGU Dashboard
 
