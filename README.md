@@ -89,7 +89,6 @@ Our platform is divided into two seamless experiences: a public-facing reporting
 | 📋 **Guided 4-Step Flow**      | Visual progress stepper: `Snap Photo → Fill Details → Pin Location → Submit`        |
 | 🏷️ **Waste Categorization**    | Recyclable, Non-recyclable, Nabubulok (Organic), Hazardous Waste                    |
 | ✅ **Success / Error Modals**  | Flash modals communicate report outcomes clearly with no page refresh               |
-| 🌙 **Dark Mode**               | Full dark/light mode toggle with system preference detection                        |
 | 📱 **Mobile-First Design**     | Responsive layout optimized for street-level field reporting                        |
 
 > [!WARNING]  
