@@ -1,6 +1,6 @@
 <div align="center">
-
-<img width="2048" height="413" alt="E-Tapon Mo Header" width="100%" src="https://github.com/user-attachments/assets/06e75dc7-093b-4847-bd79-6ec023a715e4" />
+  
+<img width="2048" height="413" alt="banner" src="https://github.com/user-attachments/assets/91ef5d63-e34f-44c9-89fc-1714d72f4fa1" />
 
 <p align="center">
   A frictionless, AI-assisted, real-time community waste reporting platform connecting citizens with Local Government Units (LGUs) for real-time waste management.
