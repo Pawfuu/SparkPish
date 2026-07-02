@@ -126,29 +126,27 @@ Our platform is divided into two seamless experiences: a public-facing reporting
 
 ### 🤖 AI Image Validation
 
-|                                 ✅ Successful Report                                  |                             ❌ Invalid Submission                              |
-| :-----------------------------------------------------------------------------------: | :----------------------------------------------------------------------------: |
-| <img src="/SparkPish/user-app/assets/success.gif" width="100%" alt="Successful Flow"> | <img src="/SparkPish/user-app/assets/Error.gif" width="100%" alt="Error Flow"> |
+|                            ✅ Successful Report                            |                        ❌ Invalid Submission                        |
+| :------------------------------------------------------------------------: | :-----------------------------------------------------------------: |
+| <img src="user-app/assets/success.gif" width="100%" alt="Successful Flow"> | <img src="user-app/assets/Error.gif" width="100%" alt="Error Flow"> |
 
 ### 🏛️ LGU Dashboard
 
-> Real-time synchronization, filtering, sorting, and status updates.
+|                               Dashboard Overview                                |
+| :-----------------------------------------------------------------------------: |
+| <img src="user-app/assets/dashboard.gif" width="100%" alt="Dashboard Overview"> |
 
-|                                     Dashboard Overview                                     |
-| :----------------------------------------------------------------------------------------: |
-| <img src="/SparkPish/user-app/assets/dashboard.gif" width="100%" alt="Dashboard Overview"> |
+|                          Real-Time Maps                           |
+| :---------------------------------------------------------------: |
+| <img src="user-app/assets/maps.gif" width="100%" alt="Maps View"> |
 
-|                                Real-Time Maps                                |
-| :--------------------------------------------------------------------------: |
-| <img src="/SparkPish/user-app/assets/maps.gif" width="100%" alt="Maps View"> |
+|                              Civic Reports                              |
+| :---------------------------------------------------------------------: |
+| <img src="user-app/assets/reports.gif" width="100%" alt="Reports View"> |
 
-|                                   Civic Reports                                    |
-| :--------------------------------------------------------------------------------: |
-| <img src="/SparkPish/user-app/assets/reports.gif" width="100%" alt="Reports View"> |
-
-|                                     AI Analysis                                      |
-| :----------------------------------------------------------------------------------: |
-| <img src="/SparkPish/user-app/assets/Analysis.gif" width="100%" alt="Analysis View"> |
+|                                AI Analysis                                |
+| :-----------------------------------------------------------------------: |
+| <img src="user-app/assets/Analysis.gif" width="100%" alt="Analysis View"> |
 
 > [!IMPORTANT]
 > **Prototype Scope**
